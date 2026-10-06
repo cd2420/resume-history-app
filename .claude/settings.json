@@ -1,0 +1,7 @@
+{
+  "enabledMcpjsonServers": [
+    "claude-flow"
+  ],
+  "enableAllProjectMcpServers": true,
+  "outputStyle": "Spartan"
+}

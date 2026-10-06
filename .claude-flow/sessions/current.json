@@ -1,0 +1,13 @@
+{
+  "id": "session-1791301111002",
+  "startedAt": "2026-10-06T15:38:31.002Z",
+  "cwd": "/Users/imdaegeun/life-game",
+  "context": {},
+  "metrics": {
+    "edits": 0,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "restoredAt": "2026-10-06T15:40:37.980Z"
+}
