@@ -1,30 +1,30 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+이 파일은 이 저장소의 코드를 다룰 때 Claude Code(claude.ai/code)에 주는 지침입니다.
 
-## Commands
+## 명령어
 
 ```bash
 npm install
-npm run dev        # Vite dev server with SSR, http://localhost:5173
+npm run dev        # SSR이 적용된 Vite 개발 서버, http://localhost:5173
 npm run build      # react-router build -> build/client + build/server
-npm run typecheck  # react-router typegen && tsc (no lint or test setup exists yet)
+npm run typecheck  # react-router typegen && tsc (lint, 테스트 설정은 아직 없음)
 ```
 
-## Architecture
+## 아키텍처
 
-- **React Router v7 framework mode** (the successor to Remix v2), SSR enabled, built with Vite 8 + Tailwind CSS v4 (`@tailwindcss/vite`, imported via `app/app.css`).
-- Routes are **config-based**, not file-system based: every route must be registered in `app/routes.ts`. Route modules live in `app/routes/` and get generated types from `./+types/<route>` (produced by `react-router typegen` into `.react-router/`, gitignored). Run `npm run typecheck` after adding a route so the `+types` import resolves.
-- `app/root.tsx` holds the HTML `Layout`, global links, and the app-wide `ErrorBoundary`.
-- Path alias `~/*` maps to `app/*`.
-- `.agents/skills/react-router/` contains the React Router agent skill (mode-specific references); consult it for loaders/actions/middleware patterns.
+- **React Router v7 프레임워크 모드**(Remix v2의 후속)를 쓰고, SSR이 켜져 있습니다. Vite 8 + Tailwind CSS v4(`@tailwindcss/vite`, `app/app.css`로 import)로 빌드합니다.
+- 라우트는 파일 시스템 기반이 아니라 **설정 기반**입니다. 모든 라우트를 `app/routes.ts`에 등록해야 합니다. 라우트 모듈은 `app/routes/`에 두고, `./+types/<route>`에서 생성된 타입을 씁니다. 이 타입은 `react-router typegen`이 `.react-router/`에 만들며, 이 폴더는 gitignore 대상입니다. 라우트를 추가한 뒤에는 `npm run typecheck`를 실행해야 `+types` import가 해결됩니다.
+- `app/root.tsx`에는 HTML `Layout`, 전역 링크, 앱 전체 `ErrorBoundary`가 있습니다.
+- 경로 별칭 `~/*`는 `app/*`를 가리킵니다.
+- `.agents/skills/react-router/`에는 React Router 에이전트 스킬(모드별 레퍼런스)이 있습니다. loader/action/middleware 패턴은 여기를 참고하세요.
 
-## Version pinning (important)
+## 버전 고정 (중요)
 
-React Router is intentionally pinned to `^7.x` even though `create-react-router@latest` scaffolds v8. `@vercel/react-router` (the Vercel preset in `react-router.config.ts`) only declares a peer dependency on `@react-router/dev@7`. Do not upgrade to v8 until that preset supports it. Build output shows v8 future-flag warnings; those are expected.
+`create-react-router@latest`는 v8을 생성하지만, React Router는 의도적으로 `^7.x`에 고정해 두었습니다. `@vercel/react-router`(`react-router.config.ts`의 Vercel 프리셋)가 peer dependency로 `@react-router/dev@7`만 선언하기 때문입니다. 이 프리셋이 v8을 지원하기 전에는 v8로 올리지 마세요. 빌드 출력에 v8 future-flag 경고가 나오지만 정상입니다.
 
-## Deployment
+## 배포
 
-- Hosted on Vercel (project `life-game`, team `daegeuns-projects`), connected to GitHub: pushes to `main` deploy to production, other branches get preview deployments.
-- `vercel.json` sets `"framework": "react-router"`. This is required because the Vercel project was created with the "Other" preset, which made every route 404. Don't remove it.
-- `.vercel/` and `build/` are build output and are gitignored.
+- Vercel에 호스팅합니다(프로젝트 `life-game`, 팀 `daegeuns-projects`). GitHub와 연결되어 있어서 `main`에 push하면 프로덕션에 배포되고, 다른 브랜치는 프리뷰 배포가 만들어집니다.
+- `vercel.json`이 `"framework": "react-router"`를 지정합니다. Vercel 프로젝트가 "Other" 프리셋으로 만들어져 모든 라우트가 404가 났기 때문에 필요한 설정입니다. 지우지 마세요.
+- `.vercel/`과 `build/`는 빌드 산출물이며 gitignore 대상입니다.

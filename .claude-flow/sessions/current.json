@@ -1,13 +1,20 @@
 {
-  "id": "session-1791301111002",
-  "startedAt": "2026-10-06T15:38:31.002Z",
-  "cwd": "/Users/imdaegeun/life-game",
-  "context": {},
+  "id": "session-1791799844856",
+  "startedAt": "2026-10-12T10:10:44.857Z",
+  "cwd": "/Users/imdaegeun/resume-history-app",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-product-vision-----0",
+      "mem_mv6sgutd_t8xx1rnq",
+      "mem_mv6sgute_w4v85edo"
+    ]
+  },
   "metrics": {
     "edits": 0,
     "commands": 0,
     "tasks": 0,
     "errors": 0
   },
-  "restoredAt": "2026-10-06T15:40:37.980Z"
+  "restoredAt": "2026-10-13T14:41:18.241Z",
+  "updatedAt": "2026-10-13T14:56:44.780Z"
 }
