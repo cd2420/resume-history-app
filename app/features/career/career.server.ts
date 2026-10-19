@@ -43,6 +43,17 @@ export class CareerError extends Error {
   }
 }
 
+// YYYY-MM strings sort chronologically. Mirrors the *_period_check constraints so a
+// reversed period fails as "invalid" here instead of an opaque DB error.
+function isOrdered({ start_date, end_date }: { start_date: string | null; end_date: string | null }) {
+  return !start_date || !end_date || end_date >= start_date;
+}
+
+const savableDraftSchema = projectDraftSchema.refine(
+  (draft) => isOrdered(draft.career) && isOrdered(draft.project),
+  { message: "end_date must not be before start_date" },
+);
+
 const CAREER_SELECT = `
   id, company_name, company_desc, role, start_date, end_date,
   projects (
@@ -53,7 +64,7 @@ const CAREER_SELECT = `
 // The draft comes back from the browser after user edits, so it is re-validated here.
 // The RPC inserts career, project and achievements in one transaction (see migration).
 export async function saveProjectDraft(supabase: SupabaseClient, draft: unknown): Promise<string> {
-  const parsed = projectDraftSchema.safeParse(draft);
+  const parsed = savableDraftSchema.safeParse(draft);
   if (!parsed.success) throw new CareerError("invalid", { cause: parsed.error });
 
   const { data, error } = await supabase.rpc("save_project_draft", { draft: parsed.data });

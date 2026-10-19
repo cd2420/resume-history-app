@@ -42,6 +42,17 @@ describe("saveProjectDraft", () => {
     expect(client.rpc).not.toHaveBeenCalled();
   });
 
+  test("rejects a period that ends before it starts, matching the DB check", async () => {
+    const { supabase, client } = supabaseWith({});
+    const reversed = {
+      ...FAKE_DRAFT,
+      project: { ...FAKE_DRAFT.project, start_date: "2024-02", end_date: "2023-09" },
+    };
+
+    expect(await reasonOf(saveProjectDraft(supabase, reversed))).toBe("invalid");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
   test("fails as db when the RPC returns an error", async () => {
     const { supabase } = supabaseWith({
       rpc: { data: null, error: { code: "23514", message: "check violation" } },
