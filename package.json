@@ -8,7 +8,8 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "telegram:webhook": "node --env-file=.env scripts/set-telegram-webhook.ts"
   },
   "engines": {
     "node": ">=22"

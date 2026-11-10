@@ -8,7 +8,10 @@
 npm install
 npm run dev        # SSR이 적용된 Vite 개발 서버, http://localhost:5173
 npm run build      # react-router build -> build/client + build/server
-npm run typecheck  # react-router typegen && tsc (lint, 테스트 설정은 아직 없음)
+npm run typecheck  # react-router typegen && tsc (lint 설정은 아직 없음)
+npm test           # Vitest 단위 테스트 (app/**/*.test.ts)
+npm run test:e2e   # Playwright. 가짜 LLM·가짜 텔레그램으로 dev 서버를 띄움. 전체 흐름은 .env의 E2E 계정 필요
+npm run telegram:webhook  # .env의 봇을 APP_URL/api/telegram/webhook에 연결 (환경마다 1회)
 ```
 
 ## 아키텍처
@@ -17,6 +20,7 @@ npm run typecheck  # react-router typegen && tsc (lint, 테스트 설정은 아�
 - 라우트는 파일 시스템 기반이 아니라 **설정 기반**입니다. 모든 라우트를 `app/routes.ts`에 등록해야 합니다. 라우트 모듈은 `app/routes/`에 두고, `./+types/<route>`에서 생성된 타입을 씁니다. 이 타입은 `react-router typegen`이 `.react-router/`에 만들며, 이 폴더는 gitignore 대상입니다. 라우트를 추가한 뒤에는 `npm run typecheck`를 실행해야 `+types` import가 해결됩니다.
 - `app/root.tsx`에는 HTML `Layout`, 전역 링크, 앱 전체 `ErrorBoundary`가 있습니다.
 - 경로 별칭 `~/*`는 `app/*`를 가리킵니다.
+- **이력서랍(텔레그램 회고)**: `app/features/drawer/`, `app/features/telegram/`. 봇과 정시 알림은 secret 키(RLS 우회)로 DB에 접근하므로 쓰기는 `drawer.server.ts`의 `DrawerRepo`로만 하고, `userId`는 `telegram_links` 조회 결과로만 정합니다. 웹(`/drawer`)은 세션 클라이언트 + RLS를 씁니다. 사용자가 보낸 원문은 저장하거나 로그에 남기지 않습니다. 정시 알림은 Vercel Cron이 아니라 Supabase `pg_cron`이 `/api/cron/notify`를 호출합니다(Hobby Cron은 하루 1회 제한).
 - `.agents/skills/react-router/`에는 React Router 에이전트 스킬(모드별 레퍼런스)이 있습니다. loader/action/middleware 패턴은 여기를 참고하세요.
 
 ## 버전 고정 (중요)

@@ -205,6 +205,22 @@ npm run build
 - PRD 1 웹 인터뷰(`/onboarding`)의 Responses API 이전 — 별도 작업. 이번엔 손대지 않음
 - 사용자별 시간대, 결제, 카카오톡
 
+## 진행 상황 (2026-11-10)
+| Task | 상태 | 메모 |
+|---|---|---|
+| 0 사전 준비 | **사용자 작업 대기** | Supabase 복구, 공개 가입·이메일 인증, secret 키, Vault 시크릿 2개, 봇 2개, Vercel env |
+| 1 스키마·RLS·cron | 작성 완료, **원격 미적용** | 로컬 Postgres 16 + Supabase 스텁에서 3개 마이그레이션 적용, RLS·함수 검사 30개 통과. cron 마이그레이션은 `pg_cron`이 없어 SQL 본문만 검증 |
+| 2 순수 로직 | 완료 | `kst.ts`, `update-schema.ts`, `link-token.server.ts` |
+| 3 일반화 | 완료 | Responses API, `store: false` |
+| 4 봇 핸들러 | 완료 | 시나리오 10개 + 그룹·봇 무시·차단 해제 |
+| 5 정시 알림 | 완료 | 중복 호출·동시 실행·403·429 |
+| 6 라우트 | 완료 | dev 서버에서 401/405/200 확인. 실제 텔레그램 왕복은 Task 0 이후 |
+| 7 웹 화면 | 완료 | 390px 렌더링 확인(가짜 데이터). 실제 로그인 흐름은 Task 0 이후 |
+| 8 E2E | 작성 완료 | 공개 시나리오 2개 통과. 계정 시나리오는 E2E 계정·Supabase 필요해 skip |
+| 9 운영 확인 | 대기 | |
+
+플랜과 달라진 점: 웹용 데이터 함수는 `drawer-web.server.ts`로 분리, 공용 상수는 `limits.ts`, 테스트용 `fake-repo.ts`·`fake-telegram.ts` 추가, webhook·cron 처리 로직은 `endpoints.server.ts`로 분리. 딥링크 토큰 만료는 DB 시계 차이를 고려해 9분.
+
 ## Acceptance
 - [ ] All tasks complete
 - [ ] Validation passes

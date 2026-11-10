@@ -115,9 +115,9 @@ function Section({ title: heading, children }: { title: string; children: React.
   );
 }
 
-const button = "rounded bg-sky-600 px-3 py-2 text-sm font-semibold disabled:opacity-50";
-const subtle = "rounded bg-slate-700 px-3 py-2 text-sm";
-const input = "rounded bg-slate-900 px-3 py-2";
+const button = "shrink-0 whitespace-nowrap rounded bg-sky-600 px-3 py-2 text-sm font-semibold disabled:opacity-50";
+const subtle = "shrink-0 whitespace-nowrap rounded bg-slate-700 px-3 py-2 text-sm";
+const input = "min-w-0 rounded bg-slate-900 px-3 py-2 text-sm";
 
 export default function Drawer({ loaderData, actionData }: Route.ComponentProps) {
   const { telegram, notifyHour, projects, currentProjectId, logs } = loaderData;
