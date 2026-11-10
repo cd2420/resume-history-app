@@ -4,6 +4,7 @@ import { AuthShell } from "~/features/drawer/components/AuthShell";
 import { ui } from "~/features/drawer/components/ui";
 import { z } from "zod";
 
+import { AUTH_MESSAGES, loginErrorMessage, resendErrorMessage } from "~/features/auth/auth-messages";
 import { readRememberedEmail, withRememberedEmail } from "~/features/auth/remember-email.server";
 import { demoLoginHeaders, hasDemoSession } from "~/features/demo/demo-auth.server";
 import { getEnv } from "~/lib/env.server";
@@ -15,7 +16,30 @@ const credentialsSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-const LOGIN_FAILED = "이메일 또는 비밀번호가 올바르지 않습니다.";
+const resendSchema = z.object({ email: z.email() });
+
+type LoginResult = { error: string | null; notice: string | null; unconfirmedEmail: string | null };
+const result = (fields: Partial<LoginResult>): LoginResult => ({ error: null, notice: null, unconfirmedEmail: null, ...fields });
+
+/** Sends the sign-up confirmation mail again. Says the same thing whether or not the address exists. */
+async function resendConfirmation(request: Request, form: FormData) {
+  const parsed = resendSchema.safeParse({ email: form.get("email") });
+  if (!parsed.success) return data(result({ error: AUTH_MESSAGES.resendFailed }), { status: 400 });
+  const env = getEnv();
+  if (env.isDemo) return data(result({ notice: AUTH_MESSAGES.resent }));
+
+  const { supabase, headers } = createSupabase(request);
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data.email,
+    options: { emailRedirectTo: `${env.APP_URL}/login` },
+  });
+  if (error) {
+    console.error("resend failed", error.code ?? error.status);
+    return data(result({ error: resendErrorMessage(error.code), unconfirmedEmail: parsed.data.email }), { status: 400, headers });
+  }
+  return data(result({ notice: AUTH_MESSAGES.resent }), { headers });
+}
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "로그인" }];
@@ -38,12 +62,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
+  if (form.get("intent") === "resend") return resendConfirmation(request, form);
   const parsed = credentialsSchema.safeParse({
     email: form.get("email"),
     password: form.get("password"),
   });
   if (!parsed.success) {
-    return data({ error: LOGIN_FAILED }, { status: 400 });
+    return data(result({ error: AUTH_MESSAGES.loginFailed }), { status: 400 });
   }
   const env = getEnv();
   // Only touched after a successful sign-in; never the password.
@@ -62,7 +87,8 @@ export async function action({ request }: Route.ActionArgs) {
   if (error) {
     // Supabase error codes only; never log the submitted credentials.
     console.error("login failed", error.code ?? error.status);
-    return data({ error: LOGIN_FAILED }, { status: 400, headers });
+    const { error: message, needsConfirmation } = loginErrorMessage(error.code);
+    return data(result({ error: message, unconfirmedEmail: needsConfirmation ? parsed.data.email : null }), { status: 400, headers });
   }
   throw redirect("/drawer", { headers: await rememberEmail(headers) });
 }
@@ -120,6 +146,11 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
             {actionData.error}
           </p>
         )}
+        {actionData?.notice && (
+          <p role="status" className="rounded-md border border-ok/40 bg-ok-soft px-3 py-2 text-sm text-ink">
+            {actionData.notice}
+          </p>
+        )}
         <button
           type="submit"
           disabled={isSubmitting}
@@ -127,6 +158,18 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
         >
           {isSubmitting ? "로그인 중…" : "로그인"}
         </button>
+        {actionData?.unconfirmedEmail && (
+          <button
+            type="submit"
+            name="intent"
+            value="resend"
+            formNoValidate
+            disabled={isSubmitting}
+            className={`${ui.secondary} py-2.5`}
+          >
+            인증 메일 다시 보내기
+          </button>
+        )}
         <p className="text-center text-sm text-muted">
           처음이신가요?{" "}
           <Link to="/signup" className="font-semibold text-brass underline">

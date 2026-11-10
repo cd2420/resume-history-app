@@ -1,5 +1,6 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
+import { signupErrorMessage } from "~/features/auth/auth-messages";
 import { AuthShell } from "~/features/drawer/components/AuthShell";
 import { ui } from "~/features/drawer/components/ui";
 import { z } from "zod";
@@ -60,7 +61,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (error) {
     // Error code only; never log the submitted credentials.
     console.error("signup failed", error.code ?? error.status);
-    return data({ error: "가입하지 못했습니다. 잠시 후 다시 시도해 주세요.", sent: false }, { status: 400, headers });
+    return data({ error: signupErrorMessage(error.code), sent: false }, { status: 400, headers });
   }
   // With email confirmation off, Supabase signs the user in immediately.
   if (result.session) throw redirect("/drawer/consent", { headers });
@@ -77,6 +78,11 @@ export default function Signup({ actionData }: Route.ComponentProps) {
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold tracking-title">메일을 확인해 주세요</h1>
           <p className="text-sm leading-relaxed text-muted">인증 메일의 링크를 누른 뒤 로그인하면 텔레그램을 연결할 수 있어요.</p>
+          {/* Same text whether or not the address already had an account, so sign-up cannot be used to probe emails. */}
+          <p className="text-sm leading-relaxed text-muted">
+            메일이 오지 않으면 이미 가입된 이메일일 수 있어요. 로그인해 보세요. 인증을 마치지 않은 계정이면 로그인 화면에서 인증 메일을 다시 받을 수
+            있어요.
+          </p>
           <Link to="/login" className={`${ui.primary} py-2.5`}>
             로그인으로
           </Link>

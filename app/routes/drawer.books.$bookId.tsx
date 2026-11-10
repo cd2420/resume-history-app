@@ -72,12 +72,17 @@ async function loadBook(request: Request, bookId: string) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { session, detail } = await loadBook(request, params.bookId);
-  const [{ shelves }, star, starQuota] = await Promise.all([
-    session.store.getBookshelf(),
-    session.store.getStar(detail.book.id),
+  const session = await requireConsentedSession(request);
+  if (!uuid.safeParse(params.bookId).success) throw data("책을 찾을 수 없어요.", { status: 404 });
+  // One round of parallel queries: the book, only the shelf names (not the whole bookshelf), its STAR and quota.
+  // getStar is scoped by RLS, so it returns null for a book that is not the user's.
+  const [detail, shelves, star, starQuota] = await Promise.all([
+    session.store.getBook(params.bookId),
+    session.store.listShelves(),
+    session.store.getStar(params.bookId),
     getStarQuota(session.store),
   ]);
+  if (!detail) throw data("책을 찾을 수 없어요.", { status: 404 });
   // Today in KST from the server, so the date picker never defaults to the browser's timezone.
   return data({ ...detail, shelves, star, starQuota, isDemo: session.isDemo, today: kstDate(new Date()) }, { headers: session.headers });
 }

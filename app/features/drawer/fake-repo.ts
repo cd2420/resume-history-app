@@ -182,8 +182,11 @@ export class FakeDrawerRepo implements DrawerRepo {
     return this.roles.get(userId) ?? "user";
   }
 
+  /** Stands in for the database clock; tests point it at their fake "now". */
+  clock: () => Date = () => new Date();
+
   async openSession(userId: string, input: Parameters<DrawerRepo["openSession"]>[1]) {
-    const now = new Date();
+    const now = this.clock();
     for (const s of this.sessions) {
       if (s.userId === userId && s.status === "open" && s.expiresAt <= now) s.status = "expired";
     }

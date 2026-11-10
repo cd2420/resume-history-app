@@ -17,6 +17,8 @@ import { normalizeTags, topTags } from "./tags";
 /** Bookshelf operations bound to one signed-in user (Supabase + RLS, or demo memory). */
 export interface BookshelfStore {
   getBookshelf(): Promise<BookshelfView>;
+  /** Just the shelves, for screens that need the shelf names but not the whole bookshelf. */
+  listShelves(): Promise<Shelf[]>;
   search(filters: SearchFilters): Promise<SearchHit[]>;
   getBook(bookId: string): Promise<BookDetail | null>;
   createShelf(name: string): Promise<void>;
@@ -78,6 +80,8 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
   }
 
   const store: BookshelfStore = {
+    listShelves,
+
     async getBookshelf() {
       const [rows, shelves, current, tags] = await Promise.all([
         supabase.rpc("drawer_bookshelf"),

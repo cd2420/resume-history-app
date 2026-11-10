@@ -174,6 +174,7 @@ export class DemoStore extends FakeDrawerRepo {
       this.shelves.filter((s) => s.userId === userId).sort((a, b) => a.position - b.position);
     const toShelf = ({ id, name, position }: Shelf) => ({ id, name, position });
     return {
+      listShelves: async () => ownedShelves().map(toShelf),
       getBookshelf: async () => ({
         shelves: ownedShelves().map(toShelf),
         books: sortBooks(this.projects.filter((p) => p.userId === userId).map((p) => this.bookSummary(userId, p))),

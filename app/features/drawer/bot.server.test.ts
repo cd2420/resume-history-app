@@ -33,6 +33,7 @@ beforeEach(() => {
   llmCreate = vi.fn(fake.responses.create);
   now = NOW;
   deps = { repo, telegram, llm: { responses: { create: llmCreate } }, now: () => now, appUrl: APP_URL };
+  repo.clock = () => now;
 });
 
 function text(from: number, value: string): TelegramUpdate {

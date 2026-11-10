@@ -1,6 +1,6 @@
-import { Dot } from "lucide-react";
+import { Dot, LoaderCircle } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
-import { Link } from "react-router";
+import { Link, useNavigation } from "react-router";
 
 import { type BookSummary, formatPeriod } from "../bookshelf";
 
@@ -45,13 +45,18 @@ const CLOTH_TEXTURE =
 export function BookCover({ book }: { book: BookSummary }) {
   const depth = bookThickness(book.logCount);
   const cloth = spineColor(book.id);
+  const to = `/drawer/books/${book.id}`;
+  // The book page loader can take a moment on a cold server: show it on the book that was clicked.
+  const navigation = useNavigation();
+  const isOpening = navigation.state === "loading" && navigation.location.pathname === to;
 
   return (
     <Link
-      to={`/drawer/books/${book.id}`}
+      to={to}
       viewTransition
       data-testid="book"
       aria-label={`${book.title} 열기`}
+      aria-busy={isOpening}
       className="group relative block aspect-[5/7] w-full rounded-sm perspective-[700px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brass"
     >
       {/* Contact shadow where the book meets the plank. */}
@@ -114,6 +119,16 @@ export function BookCover({ book }: { book: BookSummary }) {
                 </ul>
               )}
             </div>
+            {isOpening && (
+              <span
+                role="status"
+                data-testid="book-opening"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/55 text-xs font-semibold text-cloth-ink"
+              >
+                <LoaderCircle size={28} strokeWidth={2} aria-hidden className="animate-spin motion-reduce:animate-none" />
+                여는 중…
+              </span>
+            )}
           </div>
         </motion.div>
       </MotionConfig>

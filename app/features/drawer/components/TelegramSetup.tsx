@@ -40,7 +40,8 @@ export function TelegramConnect({ isDemo, botUsername, term }: ConnectProps) {
           target={isDemo ? undefined : "_blank"}
           rel="noopener noreferrer"
           data-testid="deep-link"
-          className={`${ui.primary} w-fit`}
+          // The bot name makes this label long: let it wrap inside the card on narrow screens.
+          className={`${ui.primary} w-full text-center whitespace-normal! sm:w-fit`}
         >
           <Send {...ICON} aria-hidden />
           {isDemo ? "봇 시뮬레이터에서 연결하기" : `텔레그램에서 @${botUsername} 열기`}
