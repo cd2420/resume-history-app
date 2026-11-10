@@ -31,6 +31,6 @@ npm run telegram:webhook  # .env의 봇을 APP_URL/api/telegram/webhook에 연�
 
 ## 배포
 
-- Vercel에 호스팅합니다(프로젝트 `life-game`, 팀 `daegeuns-projects`). GitHub와 연결되어 있어서 `main`에 push하면 프로덕션에 배포되고, 다른 브랜치는 프리뷰 배포가 만들어집니다.
+- Vercel에 호스팅합니다(프로젝트 `resume-history`, 팀 `daegeuns-projects`, 운영 주소 `https://resume-history-fawn.vercel.app`). GitHub와 연결되어 있어서 `main`에 push하면 프로덕션에 배포되고, 다른 브랜치는 프리뷰 배포가 만들어집니다.
 - `vercel.json`이 `"framework": "react-router"`를 지정합니다. Vercel 프로젝트가 "Other" 프리셋으로 만들어져 모든 라우트가 404가 났기 때문에 필요한 설정입니다. 지우지 마세요.
 - `.vercel/`과 `build/`는 빌드 산출물이며 gitignore 대상입니다.

@@ -16,3 +16,4 @@
 # Vercel
 /.vercel/
 .claude-flow/*
+.swarm/
