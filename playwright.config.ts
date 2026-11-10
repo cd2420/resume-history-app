@@ -29,11 +29,10 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 60_000,
-    // Fake LLM and fake Telegram: no OpenAI cost, no real bot messages.
-    env: {
-      E2E_FAKE_LLM: "1",
-      E2E_FAKE_TELEGRAM_OUTBOX: TELEGRAM_OUTBOX,
-      APP_URL: `http://localhost:${PORT}`,
-    },
+    // With the E2E account: real Supabase, fake LLM and fake Telegram.
+    // Without it: demo mode (in-memory data), which e2e/demo.spec.ts covers.
+    env: process.env.E2E_USER_EMAIL
+      ? { E2E_FAKE_LLM: "1", E2E_FAKE_TELEGRAM_OUTBOX: TELEGRAM_OUTBOX, APP_URL: `http://localhost:${PORT}` }
+      : { DEMO_MODE: "1", APP_URL: `http://localhost:${PORT}` },
   },
 });

@@ -130,7 +130,7 @@ describe("daily answer", () => {
 
     await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: pending.id })));
 
-    expect(repo.logs).toEqual([
+    expect(repo.logs).toMatchObject([
       { userId: USER_A, projectId: pending.projectId, logDate: "2026-11-10", content: FAKE_GENERALIZATION.generalized, edited: false },
     ]);
     expect(repo.pendings).toHaveLength(0);
@@ -159,7 +159,7 @@ describe("daily answer", () => {
 
     await handleUpdate(deps, text(TG_A, "금융권 결제 API에 캐시 적용해 응답 개선"));
 
-    expect(repo.logs).toEqual([
+    expect(repo.logs).toMatchObject([
       { userId: USER_A, projectId: pending.projectId, logDate: "2026-11-10", content: "금융권 결제 API에 캐시 적용해 응답 개선", edited: true },
     ]);
     expect(llmCreate).toHaveBeenCalledTimes(1);

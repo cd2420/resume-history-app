@@ -1,23 +1,10 @@
-import { data, Form, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 
-import {
-  createProject,
-  deleteLog,
-  type DrawerLog,
-  DrawerWebError,
-  getDrawerOverview,
-  hasRequiredConsents,
-  issueLinkToken,
-  renameProject,
-  setCurrentProject,
-  setNotifyHour,
-  unlinkTelegram,
-  updateLog,
-} from "~/features/drawer/drawer-web.server";
+import { type DrawerLog, DrawerWebError } from "~/features/drawer/drawer-web.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "~/features/drawer/limits";
+import { requireDrawerSession } from "~/features/drawer/session.server";
 import { getEnv } from "~/lib/env.server";
-import { requireUser } from "~/lib/supabase.server";
 import type { Route } from "./+types/drawer";
 
 const uuid = z.uuid();
@@ -44,14 +31,14 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { supabase, userId, headers } = await requireUser(request);
-  if (!(await hasRequiredConsents(supabase, userId))) throw redirect("/drawer/consent", { headers });
-  const overview = await getDrawerOverview(supabase, userId);
-  return data({ ...overview, botUsername: getEnv().TELEGRAM_BOT_USERNAME }, { headers });
+  const { store, headers, isDemo } = await requireDrawerSession(request);
+  if (!(await store.hasRequiredConsents())) throw redirect("/drawer/consent", { headers });
+  const overview = await store.getOverview();
+  return data({ ...overview, isDemo, botUsername: getEnv().TELEGRAM_BOT_USERNAME }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { supabase, userId, headers } = await requireUser(request);
+  const { store, headers, isDemo } = await requireDrawerSession(request);
   const parsed = actionSchema.safeParse(Object.fromEntries(await request.formData()));
   if (!parsed.success) {
     return data<ActionResult>({ error: "입력값을 확인해 주세요." }, { status: 400, headers });
@@ -62,31 +49,34 @@ export async function action({ request }: Route.ActionArgs) {
     switch (input.intent) {
       case "connect": {
         // Linking sends answers to OpenAI, so the consent must exist first.
-        if (!(await hasRequiredConsents(supabase, userId))) throw redirect("/drawer/consent", { headers });
-        const token = await issueLinkToken(supabase, userId);
-        const deepLink = `https://t.me/${getEnv().TELEGRAM_BOT_USERNAME}?start=${token}`;
+        if (!(await store.hasRequiredConsents())) throw redirect("/drawer/consent", { headers });
+        const token = await store.issueLinkToken();
+        // Demo mode has no real bot: the link opens the in-app bot simulator instead.
+        const deepLink = isDemo
+          ? `/drawer/demo-bot?start=${token}`
+          : `https://t.me/${getEnv().TELEGRAM_BOT_USERNAME}?start=${token}`;
         return data<ActionResult>({ deepLink }, { headers });
       }
       case "unlink":
-        await unlinkTelegram(supabase, userId);
+        await store.unlinkTelegram();
         return data<ActionResult>({ done: "텔레그램 연결을 해제했어요." }, { headers });
       case "notify_hour":
-        await setNotifyHour(supabase, userId, input.hour === "off" ? null : input.hour);
+        await store.setNotifyHour(input.hour === "off" ? null : input.hour);
         return data<ActionResult>({ done: "알림 시간을 저장했어요." }, { headers });
       case "create_project":
-        await createProject(supabase, userId, input.title);
+        await store.createProject(input.title);
         return data<ActionResult>({ done: "프로젝트를 만들었어요." }, { headers });
       case "rename_project":
-        await renameProject(supabase, userId, input.projectId, input.title);
+        await store.renameProject(input.projectId, input.title);
         return data<ActionResult>({ done: "프로젝트 이름을 바꿨어요." }, { headers });
       case "set_current":
-        await setCurrentProject(supabase, userId, input.projectId);
+        await store.setCurrentProject(input.projectId);
         return data<ActionResult>({ done: "현재 프로젝트를 바꿨어요." }, { headers });
       case "update_log":
-        await updateLog(supabase, userId, input.logId, input.content);
+        await store.updateLog(input.logId, input.content);
         return data<ActionResult>({ done: "기록을 고쳤어요." }, { headers });
       case "delete_log":
-        await deleteLog(supabase, userId, input.logId);
+        await store.deleteLog(input.logId);
         return data<ActionResult>({ done: "기록을 지웠어요." }, { headers });
     }
   } catch (error) {
@@ -129,6 +119,11 @@ export default function Drawer({ loaderData, actionData }: Route.ComponentProps)
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">🗄️ 이력서랍</h1>
+          {loaderData.isDemo && (
+            <Link to="/drawer/demo-bot" className="text-sm text-sky-400 underline">
+              봇 시뮬레이터
+            </Link>
+          )}
           <Form method="post" action="/logout">
             <button type="submit" className="text-sm text-slate-400 underline">
               로그아웃
@@ -168,7 +163,7 @@ export default function Drawer({ loaderData, actionData }: Route.ComponentProps)
               {actionData?.deepLink ? (
                 <div className="flex flex-col gap-2">
                   <a href={actionData.deepLink} data-testid="deep-link" className={`${button} text-center`}>
-                    텔레그램에서 @{loaderData.botUsername} 열기
+                    {loaderData.isDemo ? "봇 시뮬레이터에서 연결하기" : `텔레그램에서 @${loaderData.botUsername} 열기`}
                   </a>
                   <p className="text-xs text-slate-400">9분 안에 한 번만 쓸 수 있어요. 연결한 뒤 이 페이지를 새로고침하세요.</p>
                 </div>
@@ -225,7 +220,7 @@ export default function Drawer({ loaderData, actionData }: Route.ComponentProps)
                     </Form>
                   )}
                 </div>
-                <details>
+                <details key={project.title}>
                   <summary className="cursor-pointer text-xs text-slate-400">이름 바꾸기</summary>
                   <Form method="post" className="mt-2 flex gap-2">
                     <input type="hidden" name="intent" value="rename_project" />
@@ -270,7 +265,8 @@ export default function Drawer({ loaderData, actionData }: Route.ComponentProps)
                         {log.edited && <span className="rounded bg-slate-700 px-1">직접 수정</span>}
                       </div>
                       <p className="whitespace-pre-wrap text-sm">{log.content}</p>
-                      <details>
+                      {/* Keyed by content so the editor collapses after a successful save. */}
+                      <details key={log.content}>
                         <summary className="cursor-pointer text-xs text-slate-400">수정·삭제</summary>
                         <Form method="post" className="mt-2 flex flex-col gap-2">
                           <input type="hidden" name="intent" value="update_log" />

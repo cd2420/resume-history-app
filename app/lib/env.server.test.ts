@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { parseEnv } from "./env.server";
+import { parseEnv, resolveEnv } from "./env.server";
 import { stubTestEnv, TEST_ENV } from "./test-env";
 
 const VALID_ENV = TEST_ENV;
@@ -83,6 +83,34 @@ describe("parseEnv", () => {
     expect(() =>
       parseEnv({ ...VALID_ENV, NODE_ENV: "production", E2E_FAKE_LLM: "1" }),
     ).toThrow(/E2E_FAKE_LLM/);
+  });
+});
+
+describe("resolveEnv", () => {
+  test("uses the real env when every key is set", () => {
+    const env = resolveEnv({ ...VALID_ENV, VERCEL_ENV: "preview" });
+    expect(env.isDemo).toBe(false);
+    expect(env.SUPABASE_URL).toBe(VALID_ENV.SUPABASE_URL);
+  });
+
+  test("falls back to demo mode locally and on previews when keys are missing", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const VERCEL_ENV of [undefined, "preview", "development"]) {
+      const env = resolveEnv({ VERCEL_ENV, VERCEL_URL: "life-game-abc.vercel.app" });
+      expect(env).toMatchObject({ isDemo: true, isFakeLlm: true, isFakeTelegram: true });
+    }
+    expect(resolveEnv({ VERCEL_URL: "x.vercel.app" }).APP_URL).toBe("https://x.vercel.app");
+    expect(resolveEnv({}).APP_URL).toBe("http://localhost:5173");
+    warn.mockRestore();
+  });
+
+  test("never falls back to demo mode on a production deployment", () => {
+    expect(() => resolveEnv({ VERCEL_ENV: "production" })).toThrow(/Invalid environment variables/);
+  });
+
+  test("DEMO_MODE=1 forces demo, but is refused on production", () => {
+    expect(resolveEnv({ ...VALID_ENV, DEMO_MODE: "1" }).isDemo).toBe(true);
+    expect(() => resolveEnv({ ...VALID_ENV, DEMO_MODE: "1", VERCEL_ENV: "production" })).toThrow(/DEMO_MODE/);
   });
 });
 

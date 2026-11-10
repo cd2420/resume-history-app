@@ -10,6 +10,7 @@ interface Link {
 }
 
 export interface FakeLog {
+  id?: string;
   userId: string;
   projectId: string;
   logDate: string;
@@ -140,7 +141,7 @@ export class FakeDrawerRepo implements DrawerRepo {
     const p = this.findPending(userId, pendingId);
     if (!p) return false;
     this.pendings = this.pendings.filter((x) => x !== p);
-    this.logs.push({ userId, projectId: p.projectId, logDate, content, edited });
+    this.logs.push({ id: randomUUID(), userId, projectId: p.projectId, logDate, content, edited });
     return true;
   }
 

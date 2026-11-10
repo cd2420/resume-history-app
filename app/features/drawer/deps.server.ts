@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 
+import { getDemoStore } from "~/features/demo/demo-store.server";
 import { createFakeTelegram } from "~/features/telegram/fake-telegram";
 import { createTelegramClient, type TelegramClient } from "~/features/telegram/telegram.server";
 import { getEnv } from "~/lib/env.server";
@@ -23,6 +24,10 @@ function getTelegram(): TelegramClient {
 }
 
 export function getBotDeps(): BotDeps {
+  if (getEnv().isDemo) {
+    const store = getDemoStore();
+    return { repo: store, telegram: store.telegram, llm: getLlm(), now: () => new Date(), appUrl: getEnv().APP_URL };
+  }
   return {
     repo: createDrawerRepo(getSupabaseAdmin()),
     telegram: getTelegram(),
@@ -33,5 +38,9 @@ export function getBotDeps(): BotDeps {
 }
 
 export function getNotifyDeps(): NotifyDeps {
+  if (getEnv().isDemo) {
+    const store = getDemoStore();
+    return { repo: store, telegram: store.telegram, now: () => new Date(), sleep: async () => {} };
+  }
   return { repo: createDrawerRepo(getSupabaseAdmin()), telegram: getTelegram(), now: () => new Date() };
 }

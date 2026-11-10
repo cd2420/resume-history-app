@@ -58,11 +58,13 @@ function pressButton(request: APIRequestContext, data: string) {
 
 async function login(page: Page) {
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("이메일").fill(EMAIL!);
   await page.getByLabel("비밀번호").fill(PASSWORD!);
   await page.getByRole("button", { name: "로그인" }).click();
   await page.waitForURL(/\/drawer/);
   if (page.url().includes("/drawer/consent")) {
+    await page.waitForLoadState("networkidle");
     await page.getByRole("checkbox").nth(0).check();
     await page.getByRole("checkbox").nth(1).check();
     await page.getByRole("button", { name: "동의하고 계속" }).click();
@@ -70,12 +72,15 @@ async function login(page: Page) {
   }
 }
 
+const DEMO = !process.env.E2E_USER_EMAIL;
+
 test("logged-out visitors are sent to /login", async ({ page }) => {
   await page.goto("/drawer");
   await expect(page).toHaveURL(/\/login$/);
 });
 
 test("webhook rejects requests without the secret", async ({ request }) => {
+  test.skip(DEMO, "demo mode uses a placeholder secret");
   const response = await request.post("/api/telegram/webhook", { data: { update_id: 1 } });
   expect(response.status()).toBe(401);
 });

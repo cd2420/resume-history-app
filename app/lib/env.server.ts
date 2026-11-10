@@ -27,7 +27,12 @@ const envSchema = z
     message: "must not be set in production",
   });
 
-export type Env = z.infer<typeof envSchema> & { isFakeLlm: boolean; isFakeTelegram: boolean };
+export type Env = z.infer<typeof envSchema> & {
+  isFakeLlm: boolean;
+  isFakeTelegram: boolean;
+  /** Demo mode: no Supabase, OpenAI or Telegram; in-memory data and a web bot simulator. */
+  isDemo: boolean;
+};
 
 type EnvSource = Record<string, string | undefined>;
 
@@ -43,12 +48,52 @@ export function parseEnv(source: EnvSource): Env {
     APP_URL: result.data.APP_URL.replace(/\/+$/, ""),
     isFakeLlm: result.data.E2E_FAKE_LLM === "1",
     isFakeTelegram: Boolean(result.data.E2E_FAKE_TELEGRAM_OUTBOX),
+    isDemo: false,
   };
+}
+
+function demoEnv(source: EnvSource): Env {
+  const vercelUrl = source.VERCEL_URL ? `https://${source.VERCEL_URL}` : undefined;
+  const appUrl = (source.APP_URL ?? vercelUrl ?? "http://localhost:5173").replace(/\/+$/, "");
+  return {
+    OPENAI_API_KEY: "demo",
+    SUPABASE_URL: "https://demo.invalid",
+    SUPABASE_ANON_KEY: "demo",
+    SUPABASE_SECRET_KEY: "demo",
+    TELEGRAM_BOT_TOKEN: "demo",
+    TELEGRAM_BOT_USERNAME: "demo_drawer_bot",
+    TELEGRAM_WEBHOOK_SECRET: "demo_webhook_secret_not_used_0000000000",
+    CRON_SECRET: "demo-cron-secret-not-used-000000000000",
+    APP_URL: appUrl,
+    NODE_ENV: source.NODE_ENV,
+    isFakeLlm: true,
+    isFakeTelegram: true,
+    isDemo: true,
+  };
+}
+
+/**
+ * Real env when every key is set. Otherwise demo mode, except on a Vercel production
+ * deployment, which must never silently run on fake data.
+ */
+export function resolveEnv(source: EnvSource): Env {
+  const isProductionDeploy = source.VERCEL_ENV === "production";
+  if (source.DEMO_MODE === "1") {
+    if (isProductionDeploy) throw new Error("DEMO_MODE must not be set on a production deployment");
+    return demoEnv(source);
+  }
+  if (isProductionDeploy) return parseEnv(source);
+  try {
+    return parseEnv(source);
+  } catch (error) {
+    console.warn(`${(error as Error).message} — running in demo mode`);
+    return demoEnv(source);
+  }
 }
 
 let cachedEnv: Env | undefined;
 
 export function getEnv(): Env {
-  cachedEnv ??= parseEnv(process.env);
+  cachedEnv ??= resolveEnv(process.env);
   return cachedEnv;
 }

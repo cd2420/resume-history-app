@@ -1,11 +1,14 @@
 import {
   isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
 } from "react-router";
+
+import { getEnv } from "~/lib/env.server";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -41,8 +44,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
-  return <Outlet />;
+export function loader() {
+  return { isDemo: getEnv().isDemo };
+}
+
+export default function App({ loaderData }: Route.ComponentProps) {
+  return (
+    <>
+      {loaderData.isDemo && (
+        <div role="note" data-testid="demo-banner" className="bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-slate-950">
+          데모 모드 · DB·OpenAI·텔레그램 대신 가짜 데이터를 씁니다. 서버가 다시 시작되면 초기화돼요.{" "}
+          <Link to="/drawer/demo-bot" className="underline">
+            봇 시뮬레이터
+          </Link>
+        </div>
+      )}
+      <Outlet />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

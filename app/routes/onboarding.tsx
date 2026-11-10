@@ -5,7 +5,10 @@ import { z } from "zod";
 import { CareerError, saveProjectDraft } from "~/features/career/career.server";
 import { DraftCard } from "~/features/interview/DraftCard";
 import { extractDraft, InterviewError, nextQuestion } from "~/features/interview/interview.server";
-import { type ChatTurn, chatTurnsSchema, type ProjectDraft } from "~/features/interview/schema";
+import { type ChatTurn, chatTurnsSchema, type ProjectDraft, projectDraftSchema } from "~/features/interview/schema";
+import { requireDemoUser } from "~/features/demo/demo-auth.server";
+import { getDemoStore } from "~/features/demo/demo-store.server";
+import { getEnv } from "~/lib/env.server";
 import { getLlm } from "~/lib/llm.server";
 import { requireUser } from "~/lib/supabase.server";
 import type { Route } from "./+types/onboarding";
@@ -54,14 +57,20 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "경력 인터뷰" }];
 }
 
+// Demo mode has no Supabase session: a demo cookie stands in and saving goes to memory.
+async function authenticate(request: Request) {
+  if (getEnv().isDemo) return { ...requireDemoUser(request), supabase: null };
+  return requireUser(request);
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
-  const { headers } = await requireUser(request);
+  const { headers } = await authenticate(request);
   return data(null, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
   // Auth first: every request may spend LLM credits or write career data.
-  const { supabase, headers } = await requireUser(request);
+  const { supabase, userId, headers } = await authenticate(request);
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return data({ error: "요청 형식이 올바르지 않습니다." }, { status: 400, headers });
@@ -74,6 +83,12 @@ export async function action({ request }: Route.ActionArgs) {
     }
     if (input.intent === "draft") {
       return data({ draft: await extractDraft(getLlm(), input.turns) }, { headers });
+    }
+    if (!supabase) {
+      const draft = projectDraftSchema.safeParse(input.draft);
+      if (!draft.success) return data({ error: CAREER_MESSAGES.invalid }, { status: 400, headers });
+      getDemoStore().addDraftProject(userId, draft.data);
+      throw redirect("/drawer", { headers });
     }
     await saveProjectDraft(supabase, input.draft);
   } catch (error) {

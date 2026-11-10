@@ -1,6 +1,7 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 
+import { demoLoginHeaders, hasDemoSession } from "~/features/demo/demo-auth.server";
 import { getEnv } from "~/lib/env.server";
 import { createSupabase } from "~/lib/supabase.server";
 import type { Route } from "./+types/signup";
@@ -19,6 +20,10 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  if (getEnv().isDemo) {
+    if (hasDemoSession(request)) throw redirect("/drawer");
+    return data(null);
+  }
   const { supabase, headers } = createSupabase(request);
   const { data: auth } = await supabase.auth.getClaims();
   if (auth?.claims.sub) throw redirect("/drawer", { headers });
@@ -39,6 +44,9 @@ export async function action({ request }: Route.ActionArgs) {
       { status: 400 },
     );
   }
+
+  // Demo mode: no account is created; the visitor goes straight to the consent screen.
+  if (getEnv().isDemo) throw redirect("/drawer/consent", { headers: demoLoginHeaders() });
 
   const { supabase, headers } = createSupabase(request);
   const { data: result, error } = await supabase.auth.signUp({

@@ -1,7 +1,7 @@
 import { data, Form, redirect, useNavigation } from "react-router";
 
-import { CONSENT_VERSION, hasRequiredConsents, recordConsents } from "~/features/drawer/drawer-web.server";
-import { requireUser } from "~/lib/supabase.server";
+import { CONSENT_VERSION } from "~/features/drawer/drawer-web.server";
+import { requireDrawerSession } from "~/features/drawer/session.server";
 import type { Route } from "./+types/drawer.consent";
 
 export function meta({}: Route.MetaArgs) {
@@ -9,20 +9,20 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { supabase, userId, headers } = await requireUser(request);
-  if (await hasRequiredConsents(supabase, userId)) throw redirect("/drawer", { headers });
+  const { store, headers } = await requireDrawerSession(request);
+  if (await store.hasRequiredConsents()) throw redirect("/drawer", { headers });
   return data({ version: CONSENT_VERSION }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { supabase, userId, headers } = await requireUser(request);
+  const { store, headers } = await requireDrawerSession(request);
   const form = await request.formData();
   // The overseas transfer consent is a separate, required checkbox.
   if (form.get("privacy") !== "on" || form.get("overseas_transfer") !== "on") {
     return data({ error: "두 항목에 모두 동의해야 이용할 수 있어요." }, { status: 400, headers });
   }
-  if (!(await hasRequiredConsents(supabase, userId))) {
-    await recordConsents(supabase, userId);
+  if (!(await store.hasRequiredConsents())) {
+    await store.recordConsents();
   }
   throw redirect("/drawer", { headers });
 }

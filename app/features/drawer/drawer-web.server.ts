@@ -163,3 +163,34 @@ export async function updateLog(supabase: SupabaseClient, userId: string, logId:
 export async function deleteLog(supabase: SupabaseClient, userId: string, logId: string) {
   checkWrite("deleteLog", await supabase.from("daily_logs").delete().eq("user_id", userId).eq("id", logId));
 }
+
+/** The /drawer pages' data operations, bound to one signed-in user. */
+export interface DrawerWebStore {
+  hasRequiredConsents(): Promise<boolean>;
+  recordConsents(): Promise<void>;
+  getOverview(): Promise<DrawerOverview>;
+  issueLinkToken(): Promise<string>;
+  unlinkTelegram(): Promise<void>;
+  setNotifyHour(hour: number | null): Promise<void>;
+  createProject(title: string): Promise<void>;
+  renameProject(projectId: string, title: string): Promise<void>;
+  setCurrentProject(projectId: string): Promise<void>;
+  updateLog(logId: string, content: string): Promise<void>;
+  deleteLog(logId: string): Promise<void>;
+}
+
+export function createSupabaseWebStore(supabase: SupabaseClient, userId: string): DrawerWebStore {
+  return {
+    hasRequiredConsents: () => hasRequiredConsents(supabase, userId),
+    recordConsents: () => recordConsents(supabase, userId),
+    getOverview: () => getDrawerOverview(supabase, userId),
+    issueLinkToken: () => issueLinkToken(supabase, userId),
+    unlinkTelegram: () => unlinkTelegram(supabase, userId),
+    setNotifyHour: (hour) => setNotifyHour(supabase, userId, hour),
+    createProject: (title) => createProject(supabase, userId, title),
+    renameProject: (projectId, title) => renameProject(supabase, userId, projectId, title),
+    setCurrentProject: (projectId) => setCurrentProject(supabase, userId, projectId),
+    updateLog: (logId, content) => updateLog(supabase, userId, logId, content),
+    deleteLog: (logId) => deleteLog(supabase, userId, logId),
+  };
+}

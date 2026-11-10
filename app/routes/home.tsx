@@ -1,5 +1,7 @@
 import { data, Link, redirect } from "react-router";
 
+import { hasDemoSession } from "~/features/demo/demo-auth.server";
+import { getEnv } from "~/lib/env.server";
 import { createSupabase } from "~/lib/supabase.server";
 import type { Route } from "./+types/home";
 
@@ -11,6 +13,10 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  if (getEnv().isDemo) {
+    if (hasDemoSession(request)) throw redirect("/drawer");
+    return data(null);
+  }
   const { supabase, headers } = createSupabase(request);
   const { data: auth } = await supabase.auth.getClaims();
   if (auth?.claims.sub) throw redirect("/drawer", { headers });
