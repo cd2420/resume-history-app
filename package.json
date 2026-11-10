@@ -9,7 +9,10 @@
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "telegram:webhook": "node --env-file=.env scripts/set-telegram-webhook.ts"
+    "telegram:webhook": "node --env-file=.env scripts/set-telegram-webhook.ts",
+    "db:pull": "node --env-file=.env node_modules/drizzle-kit/bin.cjs pull",
+    "db:generate": "node --env-file=.env node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "node --env-file=.env node_modules/drizzle-kit/bin.cjs migrate"
   },
   "engines": {
     "node": ">=22"
@@ -35,6 +38,9 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitest/coverage-v8": "^5.0.4",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^3.4.9",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",

@@ -2,6 +2,8 @@
 
 이 파일은 이 저장소의 코드를 다룰 때 Claude Code(claude.ai/code)에 주는 지침입니다.
 
+# 답변은 무조건 한국말로 해.
+
 ## 명령어
 
 ```bash
@@ -11,8 +13,18 @@ npm run build      # react-router build -> build/client + build/server
 npm run typecheck  # react-router typegen && tsc (lint 설정은 아직 없음)
 npm test           # Vitest 단위 테스트 (app/**/*.test.ts)
 npm run test:e2e   # Playwright. 가짜 LLM·가짜 텔레그램으로 dev 서버를 띄움. 전체 흐름은 .env의 E2E 계정 필요
-npm run telegram:webhook  # .env의 봇을 APP_URL/api/telegram/webhook에 연결 (환경마다 1회)
+npm run telegram:webhook  # .env의 봇을 APP_URL/api/telegram/webhook에 연결 (환경마다 1회). Node 22.18+ 필요
+npm run db:generate       # drizzle/schema.ts 변경 → drizzle/에 새 마이그레이션 SQL 생성 (.env의 DATABASE_URL)
+npm run db:migrate        # drizzle/의 미적용 마이그레이션을 DB에 적용
+npm run db:pull           # DB 스키마를 drizzle/schema.ts로 다시 뽑기 (기준선 만들 때)
 ```
+
+## DB 마이그레이션
+
+- **마이그레이션만 Drizzle(`drizzle-kit`)로 관리**합니다. 앱 쿼리는 계속 `supabase-js`로 해서 RLS가 적용되게 둡니다. 앱 코드에서 `drizzle-orm`으로 DB에 직접 붙지 마세요(RLS 우회).
+- `supabase/migrations/`는 Drizzle 이전 이력입니다. 새 변경은 `drizzle/`에만 추가하고, 두 곳에 같은 변경을 넣지 마세요.
+- 테이블·컬럼·인덱스는 `drizzle/schema.ts`를 고친 뒤 `db:generate`. RLS 정책·함수(RPC)·`pg_cron`·Vault처럼 스키마로 표현하기 어려운 것은 `npm run db:generate -- --custom --name=<이름>`으로 빈 SQL을 만들어 직접 씁니다.
+- `DATABASE_URL`은 drizzle-kit 전용이라 로컬 `.env`에만 둡니다. Vercel에 넣지 마세요.
 
 ## 아키텍처
 
