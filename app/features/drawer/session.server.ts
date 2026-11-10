@@ -23,6 +23,23 @@ export async function requireDrawerSession(request: Request): Promise<DrawerSess
   return { userId, headers, store: createSupabaseWebStore(supabase, userId), isDemo: false };
 }
 
+/**
+ * For loaders: checks the consents and runs `load` at the same time instead of one after
+ * the other. `load` only reads the user's own rows (RLS), so starting it before the check
+ * finishes is safe; its result is dropped if the user still has to consent.
+ */
+export async function loadWithConsent<T>(
+  request: Request,
+  load: (session: DrawerSession) => Promise<T>,
+): Promise<{ session: DrawerSession; data: T }> {
+  const session = await requireDrawerSession(request);
+  const [consented, loaded] = await Promise.allSettled([session.store.hasRequiredConsents(), load(session)]);
+  if (consented.status === "rejected") throw consented.reason;
+  if (!consented.value) throw redirect("/drawer/consent", { headers: session.headers });
+  if (loaded.status === "rejected") throw loaded.reason;
+  return { session, data: loaded.value };
+}
+
 /** Like requireDrawerSession, but sends users without the required consents to /drawer/consent. */
 export async function requireConsentedSession(request: Request): Promise<DrawerSession> {
   const session = await requireDrawerSession(request);

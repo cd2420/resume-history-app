@@ -5,6 +5,7 @@ import {
   Meta,
   Outlet,
   Scripts,
+  useNavigation,
   ScrollRestoration,
 } from "react-router";
 
@@ -49,9 +50,19 @@ export function loader() {
   return { isDemo: getEnv().isDemo };
 }
 
+/**
+ * Thin top bar while a page loads or a form submits, so a slow server response never looks
+ * like a frozen page. Hidden for the first 150ms (see .nav-progress in app.css).
+ */
+function NavigationProgress() {
+  const navigation = useNavigation();
+  return <div aria-hidden data-testid="nav-progress" className={`nav-progress${navigation.state !== "idle" ? " is-active" : ""}`} />;
+}
+
 export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <>
+      <NavigationProgress />
       {loaderData.isDemo && (
         <div role="note" data-testid="demo-banner" className="bg-brass-soft px-4 py-1.5 text-center text-xs font-medium text-ink">
           데모 모드 · DB·OpenAI·텔레그램 대신 가짜 데이터를 씁니다. 서버가 다시 시작되면 초기화돼요.{" "}

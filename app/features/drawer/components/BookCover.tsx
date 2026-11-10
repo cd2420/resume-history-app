@@ -54,6 +54,7 @@ export function BookCover({ book }: { book: BookSummary }) {
     <Link
       to={to}
       viewTransition
+      prefetch="intent"
       data-testid="book"
       aria-label={`${book.title} 열기`}
       aria-busy={isOpening}

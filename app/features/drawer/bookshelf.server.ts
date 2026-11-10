@@ -65,12 +65,16 @@ interface SearchRow {
   tags: string[];
 }
 
-export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string): BookshelfStore {
-  async function currentProjectId(): Promise<string | null> {
+export function createSupabaseBookshelf(
+  supabase: SupabaseClient,
+  userId: string,
+  // The web store passes its once-per-request profile reader here.
+  currentProjectId: () => Promise<string | null> = async () => {
     const profile = await supabase.from("profiles").select("current_project_id").eq("user_id", userId).maybeSingle();
     if (profile.error) throw new DrawerWebError("currentProject", profile.error.code);
     return profile.data?.current_project_id ?? null;
-  }
+  },
+): BookshelfStore {
 
   async function listShelves(): Promise<Shelf[]> {
     return check(
@@ -126,18 +130,15 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
     },
 
     async getBook(bookId) {
-      const project = await supabase
-        .from("projects")
-        .select("id, title, shelf_id, created_at")
-        .eq("user_id", userId)
-        .eq("id", bookId)
-        .maybeSingle();
-      // An invalid uuid is a 22P02 error: treat it as "not found".
-      if (project.error?.code === "22P02") return null;
-      if (project.error) throw new DrawerWebError("getBook", project.error.code);
-      if (!project.data) return null;
-
-      const [logRows, current] = await Promise.all([
+      // The book, its logs and the current book in one round: RLS returns no logs for a
+      // book that is not the user's, and the result is dropped if the book is missing.
+      const [project, logRows, current] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, title, shelf_id, created_at")
+          .eq("user_id", userId)
+          .eq("id", bookId)
+          .maybeSingle(),
         supabase
           .from("daily_logs")
           .select("id, log_date, content, tags, edited")
@@ -147,6 +148,10 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
           .order("created_at", { ascending: false }),
         currentProjectId(),
       ]);
+      // An invalid uuid is a 22P02 error: treat it as "not found".
+      if (project.error?.code === "22P02") return null;
+      if (project.error) throw new DrawerWebError("getBook", project.error.code);
+      if (!project.data) return null;
       const logs: BookLog[] = check("getBook.logs", logRows).map((row) => ({
         id: row.id,
         logDate: row.log_date,

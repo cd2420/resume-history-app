@@ -115,3 +115,42 @@ a {
     transform: translateY(8px);
   }
 }
+
+/* Page-load progress bar (root.tsx NavigationProgress). It grows towards 90% while the
+   server answers and disappears when the new page is in; the 150ms delay keeps fast
+   navigations from flashing it. */
+.nav-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 3px;
+  pointer-events: none;
+  background: var(--brass);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.nav-progress.is-active {
+  animation: nav-progress 10s cubic-bezier(0.1, 0.7, 0.2, 1) 150ms forwards;
+}
+
+@keyframes nav-progress {
+  from {
+    transform: scaleX(0.05);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress.is-active {
+    animation: nav-progress-static 0s linear 150ms forwards;
+  }
+
+  @keyframes nav-progress-static {
+    to {
+      transform: scaleX(1);
+    }
+  }
+}

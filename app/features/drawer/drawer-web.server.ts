@@ -49,6 +49,12 @@ export interface DrawerLog {
   source: "telegram" | "web";
 }
 
+/** What the bookshelf's start card and the settings page need: link state and alert hour. */
+export interface DrawerSetupStatus {
+  notifyHour: number | null;
+  telegram: { linkedAt: string; blocked: boolean } | null;
+}
+
 export interface DrawerOverview {
   notifyHour: number | null;
   currentProjectId: string | null;
@@ -60,16 +66,45 @@ export interface DrawerOverview {
 // All functions below use the user's session client, so RLS scopes every row to them.
 // userId filters duplicate the policy for query plans and as a second guard.
 
+// Published terms are the same for every signed-in user (RLS: published_at <= now()), so the
+// rows are read once per server instance and shared across requests. A newly published
+// version shows up within CONSENT_TERMS_TTL_MS.
+const CONSENT_TERMS_TTL_MS = 5 * 60 * 1000;
+// Every kind the app shows: the required ones plus the separate Telegram consent.
+const ALL_TERM_KINDS: readonly ConsentKind[] = [...CONSENT_KINDS, TELEGRAM_CONSENT_KIND];
+
+type TermRow = ConsentTerm & { publishedAt: string };
+let termsCache: { at: number; rows: Promise<TermRow[]> } | null = null;
+
+/** For tests: forget the cached terms. */
+export function clearConsentTermsCache() {
+  termsCache = null;
+}
+
+async function fetchTermRows(supabase: SupabaseClient): Promise<TermRow[]> {
+  const rows = check(
+    "getConsentTerms",
+    await supabase.from("consent_terms").select("kind, version, title, items, published_at").in("kind", ALL_TERM_KINDS),
+  );
+  return rows.map(({ published_at, ...term }) => ({ ...term, publishedAt: published_at }));
+}
+
 /** The current terms: latest published row per kind (RLS hides unpublished rows). */
 export async function getConsentTerms(
   supabase: SupabaseClient,
   kinds: readonly ConsentKind[] = CONSENT_KINDS,
+  now: number = Date.now(),
 ): Promise<ConsentTerm[]> {
-  const rows = check(
-    "getConsentTerms",
-    await supabase.from("consent_terms").select("kind, version, title, items, published_at").in("kind", kinds),
-  );
-  return currentTerms(rows.map(({ published_at, ...term }) => ({ ...term, publishedAt: published_at })), kinds);
+  if (!termsCache || now - termsCache.at > CONSENT_TERMS_TTL_MS) {
+    const rows = fetchTermRows(supabase);
+    termsCache = { at: now, rows };
+    // A failed read is not cached: the next request tries again.
+    rows.catch(() => {
+      if (termsCache?.rows === rows) termsCache = null;
+    });
+  }
+  // Same rule as before caching: only the requested kinds must have a published version.
+  return currentTerms(await termsCache.rows, kinds);
 }
 
 export async function getTelegramTerm(supabase: SupabaseClient): Promise<ConsentTerm> {
@@ -232,10 +267,58 @@ export async function getStar(supabase: SupabaseClient, userId: string, projectI
   };
 }
 
-export async function getRole(supabase: SupabaseClient, userId: string): Promise<UserRole> {
-  const { data, error } = await supabase.from("profiles").select("role").eq("user_id", userId).maybeSingle();
-  if (error) throw new DrawerWebError("getRole", error.code);
-  return parseRole(data?.role);
+export interface ProfileRow {
+  notify_hour: number | null;
+  current_project_id: string | null;
+  role: string | null;
+}
+
+/**
+ * Reads the user's profile row at most once per store (one request), however many of
+ * current book, role and alert hour the page needs. Writes to the profile call `reset`.
+ */
+export function profileLoader(supabase: SupabaseClient, userId: string) {
+  let pending: Promise<ProfileRow | null> | null = null;
+  return {
+    load(): Promise<ProfileRow | null> {
+      pending ??= (async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("notify_hour, current_project_id, role")
+          .eq("user_id", userId)
+          .maybeSingle<ProfileRow>();
+        if (error) throw new DrawerWebError("profile", error.code);
+        return data;
+      })();
+      pending.catch(() => (pending = null));
+      return pending;
+    },
+    reset() {
+      pending = null;
+    },
+  };
+}
+
+export type ProfileLoader = ReturnType<typeof profileLoader>;
+
+export async function getRole(profile: ProfileLoader): Promise<UserRole> {
+  return parseRole((await profile.load())?.role);
+}
+
+export async function getSetupStatus(
+  supabase: SupabaseClient,
+  userId: string,
+  profile: ProfileLoader,
+): Promise<DrawerSetupStatus> {
+  const [row, link] = await Promise.all([
+    profile.load(),
+    supabase.from("telegram_links").select("linked_at, blocked_at").eq("user_id", userId).maybeSingle(),
+  ]);
+  const linkRow = checkMaybe("setup.link", link);
+  return {
+    notifyHour: row?.notify_hour ?? null,
+    telegram: linkRow ? { linkedAt: linkRow.linked_at, blocked: linkRow.blocked_at !== null } : null,
+  };
 }
 
 export async function countStarsSince(supabase: SupabaseClient, userId: string, since: Date): Promise<number> {
@@ -318,6 +401,8 @@ export interface DrawerWebStore extends BookshelfStore {
   getTelegramTerm(): Promise<ConsentTerm>;
   ensureConsent(term: ConsentTerm): Promise<void>;
   getOverview(): Promise<DrawerOverview>;
+  /** Link state and alert hour only (no projects or logs). */
+  getSetupStatus(): Promise<DrawerSetupStatus>;
   issueLinkToken(): Promise<string>;
   unlinkTelegram(): Promise<void>;
   setNotifyHour(hour: number | null): Promise<void>;
@@ -338,25 +423,39 @@ export interface DrawerWebStore extends BookshelfStore {
 }
 
 export function createSupabaseWebStore(supabase: SupabaseClient, userId: string): DrawerWebStore {
+  const profile = profileLoader(supabase, userId);
+  // Run a profile write, then make the next read see it.
+  const writesProfile =
+    <A extends unknown[]>(write: (...args: A) => Promise<void>) =>
+    async (...args: A) => {
+      try {
+        await write(...args);
+      } finally {
+        profile.reset();
+      }
+    };
   return {
-    ...createSupabaseBookshelf(supabase, userId),
+    ...createSupabaseBookshelf(supabase, userId, async () => (await profile.load())?.current_project_id ?? null),
     getConsentTerms: () => getConsentTerms(supabase),
     hasRequiredConsents: () => hasRequiredConsents(supabase, userId),
     recordConsents: (terms) => recordConsents(supabase, userId, terms),
     getTelegramTerm: () => getTelegramTerm(supabase),
     ensureConsent: (term) => ensureConsent(supabase, userId, term),
     getOverview: () => getDrawerOverview(supabase, userId),
+    getSetupStatus: () => getSetupStatus(supabase, userId, profile),
     issueLinkToken: () => issueLinkToken(supabase, userId),
     unlinkTelegram: () => unlinkTelegram(supabase, userId),
-    setNotifyHour: (hour) => setNotifyHour(supabase, userId, hour),
-    createProject: (title, shelfId) => createProject(supabase, userId, title, shelfId ?? null),
+    setNotifyHour: writesProfile((hour: number | null) => setNotifyHour(supabase, userId, hour)),
+    createProject: writesProfile((title: string, shelfId?: string | null) => createProject(supabase, userId, title, shelfId ?? null)),
     renameProject: (projectId, title) => renameProject(supabase, userId, projectId, title),
-    setCurrentProject: (projectId) => setCurrentProject(supabase, userId, projectId),
+    setCurrentProject: writesProfile((projectId: string) => setCurrentProject(supabase, userId, projectId)),
     createLog: (projectId, logDate, content) => createLog(supabase, userId, projectId, logDate, content),
     getStar: (projectId) => getStar(supabase, userId, projectId),
-    putStarDraft: (projectId, draft, count, at) => putStarDraft(supabase, userId, projectId, draft, count, at),
+    putStarDraft: writesProfile((projectId: string, draft: StarDraft, count: number, at?: Date) =>
+      putStarDraft(supabase, userId, projectId, draft, count, at),
+    ),
     countStarsSince: (since) => countStarsSince(supabase, userId, since),
-    getRole: () => getRole(supabase, userId),
+    getRole: () => getRole(profile),
     saveStar: (projectId, fields, edited) => saveStarFields(supabase, userId, projectId, fields, edited),
     updateLog: (logId, content) => updateLog(supabase, userId, logId, content),
     deleteLog: (logId) => deleteLog(supabase, userId, logId),

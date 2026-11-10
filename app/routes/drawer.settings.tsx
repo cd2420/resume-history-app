@@ -14,7 +14,7 @@ import { FREE_STAR_GENERATIONS } from "~/features/drawer/star";
 import { deleteAccount } from "~/features/drawer/deps.server";
 import { DrawerDbError } from "~/features/drawer/drawer.server";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
-import { requireConsentedSession } from "~/features/drawer/session.server";
+import { loadWithConsent, requireConsentedSession } from "~/features/drawer/session.server";
 import { getEnv } from "~/lib/env.server";
 import { createSupabase } from "~/lib/supabase.server";
 import type { Route } from "./+types/drawer.settings";
@@ -43,8 +43,14 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { store, headers, isDemo } = await requireConsentedSession(request);
-  const [{ telegram, notifyHour }, telegramTerm, role] = await Promise.all([store.getOverview(), store.getTelegramTerm(), store.getRole()]);
+  // One round trip: consent check, link state, terms and role together (role and alert
+  // hour share a single profile read).
+  const {
+    session: { headers, isDemo },
+    data: [{ telegram, notifyHour }, telegramTerm, role],
+  } = await loadWithConsent(request, ({ store }) =>
+    Promise.all([store.getSetupStatus(), store.getTelegramTerm(), store.getRole()]),
+  );
   return data(
     { telegram, notifyHour, isDemo, telegramTerm, botUsername: getEnv().TELEGRAM_BOT_USERNAME, isUnlimited: isUnlimited(role) },
     { headers },

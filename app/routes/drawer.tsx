@@ -22,7 +22,7 @@ import { MAX_PROJECT_TITLE } from "~/features/drawer/limits";
 import { TelegramSetup } from "~/features/drawer/components/TelegramSetup";
 import { ICON, ui } from "~/features/drawer/components/ui";
 import { useDismissible } from "~/features/drawer/components/useDismissible";
-import { requireConsentedSession } from "~/features/drawer/session.server";
+import { loadWithConsent, requireConsentedSession } from "~/features/drawer/session.server";
 import { getEnv } from "~/lib/env.server";
 import type { Route } from "./+types/drawer";
 
@@ -48,18 +48,22 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { store, headers, isDemo } = await requireConsentedSession(request);
   const filters = parseSearchFilters(new URL(request.url).searchParams);
-  const [shelf, hits, overview, telegramTerm] = await Promise.all([
-    store.getBookshelf(),
-    hasFilters(filters) ? store.search(filters) : Promise.resolve(null),
-    // ponytail: overview also loads projects and recent logs; add a narrow status query if this page gets slow.
-    store.getOverview(),
-    store.getTelegramTerm(),
-  ]);
+  // One round trip: the consent check and all page data start together.
+  const {
+    session: { headers, isDemo },
+    data: [shelf, hits, status, telegramTerm],
+  } = await loadWithConsent(request, ({ store }) =>
+    Promise.all([
+      store.getBookshelf(),
+      hasFilters(filters) ? store.search(filters) : Promise.resolve(null),
+      store.getSetupStatus(),
+      store.getTelegramTerm(),
+    ]),
+  );
   const setup = {
-    isLinked: overview.telegram !== null,
-    notifyHour: overview.notifyHour,
+    isLinked: status.telegram !== null,
+    notifyHour: status.notifyHour,
     botUsername: getEnv().TELEGRAM_BOT_USERNAME,
     term: telegramTerm,
   };
@@ -185,7 +189,7 @@ function SearchResults({ hits, filters }: { hits: SearchHit[]; filters: SearchFi
       {[...groups.values()].map((bookHits) => (
         <article key={bookHits[0].bookId} className="flex flex-col gap-2">
           <h2 className="flex flex-wrap items-baseline gap-x-2 border-b border-line pb-2">
-            <Link to={`/drawer/books/${bookHits[0].bookId}`} viewTransition className="text-lg font-semibold tracking-title hover:text-brass">
+            <Link to={`/drawer/books/${bookHits[0].bookId}`} viewTransition prefetch="intent" className="text-lg font-semibold tracking-title hover:text-brass">
               {bookHits[0].bookTitle}
             </Link>
             <span className="text-xs text-faint">{bookHits[0].shelfName ?? NEW_SHELF_LABEL}</span>
@@ -195,7 +199,7 @@ function SearchResults({ hits, filters }: { hits: SearchHit[]; filters: SearchFi
               <li key={hit.logId} data-testid="search-hit" className="grid gap-1 py-3 sm:grid-cols-[6.5rem_1fr] sm:gap-4">
                 <span className="text-xs text-faint tabular-nums sm:pt-0.5">{hit.logDate}</span>
                 <div className="flex min-w-0 flex-col gap-2">
-                  <Link to={`/drawer/books/${hit.bookId}#log-${hit.logId}`} className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] hover:text-brass">
+                  <Link to={`/drawer/books/${hit.bookId}#log-${hit.logId}`} prefetch="intent" className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] hover:text-brass">
                     <Highlight text={hit.content} query={filters.q} />
                   </Link>
                   <TagChips tags={hit.tags} />

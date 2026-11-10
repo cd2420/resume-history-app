@@ -18,7 +18,7 @@ import { DrawerWebError } from "~/features/drawer/drawer-web.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "~/features/drawer/limits";
 import { QUESTIONS } from "~/features/drawer/messages";
 import { composeLog } from "~/features/drawer/record.server";
-import { requireConsentedSession } from "~/features/drawer/session.server";
+import { loadWithConsent, requireConsentedSession } from "~/features/drawer/session.server";
 import { formatTagInput, MAX_TAGS, normalizeTags, parseTagInput } from "~/features/drawer/tags";
 import { kstDate } from "~/lib/kst";
 import type { Route } from "./+types/drawer.books.$bookId";
@@ -72,16 +72,20 @@ async function loadBook(request: Request, bookId: string) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const session = await requireConsentedSession(request);
-  if (!uuid.safeParse(params.bookId).success) throw data("책을 찾을 수 없어요.", { status: 404 });
-  // One round of parallel queries: the book, only the shelf names (not the whole bookshelf), its STAR and quota.
+  if (!uuid.safeParse(params.bookId).success) {
+    await requireConsentedSession(request);
+    throw data("책을 찾을 수 없어요.", { status: 404 });
+  }
+  const bookId = params.bookId;
+  // One round of parallel queries, started together with the consent check: the book and
+  // its logs, only the shelf names (not the whole bookshelf), its STAR and quota.
   // getStar is scoped by RLS, so it returns null for a book that is not the user's.
-  const [detail, shelves, star, starQuota] = await Promise.all([
-    session.store.getBook(params.bookId),
-    session.store.listShelves(),
-    session.store.getStar(params.bookId),
-    getStarQuota(session.store),
-  ]);
+  const {
+    session,
+    data: [detail, shelves, star, starQuota],
+  } = await loadWithConsent(request, ({ store }) =>
+    Promise.all([store.getBook(bookId), store.listShelves(), store.getStar(bookId), getStarQuota(store)]),
+  );
   if (!detail) throw data("책을 찾을 수 없어요.", { status: 404 });
   // Today in KST from the server, so the date picker never defaults to the browser's timezone.
   return data({ ...detail, shelves, star, starQuota, isDemo: session.isDemo, today: kstDate(new Date()) }, { headers: session.headers });
@@ -230,7 +234,7 @@ export default function Book({ loaderData, actionData }: Route.ComponentProps) {
     <main className="min-h-screen bg-ground text-ink">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
         <DrawerNav isDemo={isDemo} />
-        <Link to="/drawer" viewTransition aria-label="책장으로 돌아가기" className={`${ui.ghost} -ml-2.5 w-fit`}>
+        <Link to="/drawer" viewTransition prefetch="intent" aria-label="책장으로 돌아가기" className={`${ui.ghost} -ml-2.5 w-fit`}>
           <ArrowLeft {...ICON} aria-hidden />
           책장
         </Link>

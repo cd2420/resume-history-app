@@ -255,6 +255,13 @@ export class DemoStore extends FakeDrawerRepo {
       },
       getTelegramTerm: async () => DEMO_TELEGRAM_TERM,
       ensureConsent: async () => {},
+      getSetupStatus: async () => {
+        const link = this.links.find((l) => l.userId === userId);
+        return {
+          notifyHour: this.notifyHour.get(userId) ?? null,
+          telegram: link ? { linkedAt: new Date().toISOString(), blocked: link.blocked } : null,
+        };
+      },
       getOverview: async () => {
         const link = this.links.find((l) => l.userId === userId);
         return {

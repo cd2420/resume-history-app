@@ -26,7 +26,7 @@ export function CabinetMark() {
 export function DrawerNav({ isDemo }: { isDemo: boolean }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-      <NavLink to="/drawer" end className="flex items-center gap-2.5" aria-label="이력서랍 책장">
+      <NavLink to="/drawer" end prefetch="intent" className="flex items-center gap-2.5" aria-label="이력서랍 책장">
         <CabinetMark />
         <span className="flex flex-col leading-tight">
           <span className="text-xl font-bold tracking-title">이력서랍</span>
@@ -34,11 +34,11 @@ export function DrawerNav({ isDemo }: { isDemo: boolean }) {
         </span>
       </NavLink>
       <nav className="flex flex-wrap items-center gap-1" aria-label="이력서랍 메뉴">
-        <NavLink to="/drawer" end className={link}>
+        <NavLink to="/drawer" end prefetch="intent" className={link}>
           <LibraryBig {...ICON} aria-hidden />
           책장
         </NavLink>
-        <NavLink to="/drawer/settings" className={link}>
+        <NavLink to="/drawer/settings" prefetch="intent" className={link}>
           <Settings {...ICON} aria-hidden />
           설정
         </NavLink>
