@@ -5,6 +5,7 @@ import {
   type BookLog,
   type BookshelfView,
   type BookSummary,
+  FILL_TAGS_BATCH,
   monthBounds,
   type SearchFilters,
   type SearchHit,
@@ -241,8 +242,6 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
   };
   return store;
 }
-
-export const FILL_TAGS_BATCH = 20;
 
 /**
  * Tags up to FILL_TAGS_BATCH logs that have none. Sends only the stored (generalized)

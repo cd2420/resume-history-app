@@ -93,8 +93,10 @@ test.describe("with the E2E account", () => {
     rmSync(TELEGRAM_OUTBOX, { force: true });
   });
 
-  test("link Telegram, save an answer, then edit and delete it on the web", async ({ page, request }) => {
+  test("link Telegram, save an answer, then find, edit and delete it on the web", async ({ page, request }) => {
     await login(page);
+    await page.goto("/drawer/settings");
+    await page.waitForLoadState("networkidle");
 
     // Leftover link from an earlier run.
     const unlink = page.getByRole("button", { name: "연결 해제" });
@@ -102,15 +104,6 @@ test.describe("with the E2E account", () => {
       await unlink.click();
       await expect(page.getByTestId("telegram-status")).toContainText("아직 연결하지 않았어요");
     }
-
-    const projectTitle = `E2E 프로젝트 ${Date.now()}`;
-    await page.getByLabel("새 프로젝트 이름").fill(projectTitle);
-    await page.getByRole("button", { name: "만들기" }).click();
-    await expect(page.getByRole("status")).toContainText("프로젝트를 만들었어요");
-    const projectRow = page.getByRole("listitem").filter({ hasText: projectTitle });
-    const makeCurrent = projectRow.getByRole("button", { name: "현재로" });
-    if (await makeCurrent.isVisible()) await makeCurrent.click();
-    await expect(projectRow).toContainText("● 현재");
 
     await page.getByRole("button", { name: "텔레그램 연결 링크 받기" }).click();
     const href = await page.getByTestId("deep-link").getAttribute("href");
@@ -126,22 +119,32 @@ test.describe("with the E2E account", () => {
     await sendText(request, `/start ${token}`);
     expect(readOutbox().at(-1)?.text).toContain("만료됐거나 이미 쓰였어요");
 
+    // A book made from the bot becomes the current one.
+    const projectTitle = `E2E 프로젝트 ${Date.now()}`;
+    await sendText(request, `/project ${projectTitle}`);
+    expect(readOutbox().at(-1)?.text).toContain(projectTitle);
+
     await sendText(request, "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임");
     const card = [...readOutbox()].reverse().find((m) => m.method === "sendMessage" && m.keyboard);
     expect(card?.text).toContain(FAKE_GENERALIZED);
     expect(card?.text).toContain(`[${projectTitle}]`);
+    expect(card?.text).toContain("태그: #Redis");
     const save = card!.keyboard!.flat().find((button) => button.text === "저장")!;
     await pressButton(request, save.callback_data);
 
-    await page.reload();
+    // Already saved: a second press saves nothing more.
+    await pressButton(request, save.callback_data);
+
+    // The new book is on the "newly shelved" shelf; open it.
+    await page.goto("/drawer");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("link", { name: `${projectTitle} 열기` }).click();
+    await expect(page).toHaveURL(/\/drawer\/books\//);
+    await page.waitForLoadState("networkidle");
     const log = page.getByTestId("log").filter({ hasText: FAKE_GENERALIZED });
     await expect(log).toHaveCount(1);
+    await expect(log.getByRole("link", { name: "#Redis" })).toBeVisible();
     await expect(page.getByText("A은행")).toHaveCount(0);
-
-    // Already logged today: a second press saves nothing more.
-    await pressButton(request, save.callback_data);
-    await page.reload();
-    await expect(page.getByTestId("log").filter({ hasText: FAKE_GENERALIZED })).toHaveCount(1);
 
     await log.getByText("수정·삭제").click();
     await log.getByLabel("기록 내용").fill("금융권 결제 API에 캐시 적용");
@@ -152,8 +155,9 @@ test.describe("with the E2E account", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await edited.getByText("수정·삭제").click();
     await edited.getByRole("button", { name: "삭제" }).click();
-    await expect(page.getByTestId("log").filter({ hasText: "금융권 결제 API에 캐시 적용" })).toHaveCount(0);
+    await expect(page.getByTestId("log")).toHaveCount(0);
 
+    await page.goto("/drawer/settings");
     await page.getByRole("button", { name: "연결 해제" }).click();
     await expect(page.getByTestId("telegram-status")).toContainText("아직 연결하지 않았어요");
   });
