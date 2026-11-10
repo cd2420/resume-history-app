@@ -15,6 +15,11 @@ const CHANGE_LABELS: Record<ChangeCategory, string> = {
 
 const SESSION_HINT = "질문 3개면 끝나요. 오늘 자정까지 답할 수 있어요.";
 
+/** Says which book the answers go to, and how to switch when the user moved to another project. */
+function sessionHint(book: string): string {
+  return `${SESSION_HINT}\n📕 '${book}' 책에 넣을게요. 다른 프로젝트였다면 마지막 카드에서 [프로젝트 변경]을, 앞으로 계속 바꾸려면 /project 를 보내 주세요.`;
+}
+
 export const QUESTIONS: Record<SessionStep, string> = {
   1: "1/3 오늘 무엇을 했나요?\n예) 결제 API 응답이 느린 원인을 찾았어요",
   2: "2/3 그중 직접 맡거나 결정한 건 뭐고, 왜 그렇게 했나요?\n예) 캐시 도입을 제안했어요. DB 조회가 병목이라서요",
@@ -32,7 +37,7 @@ export const MESSAGES = {
     `먼저 웹에서 가입하고 텔레그램을 연결해 주세요.\n${appUrl}/drawer/settings`,
   linked: (appUrl: string) =>
     `연결됐어요! 🗄️\n알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer/settings\n\n` +
-    "먼저 지금 하고 있는 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
+    "지금 어떤 프로젝트를 하고 있나요? 이름만 보내 주세요.\n예) 결제 시스템 개편",
   linkInvalid: (appUrl: string) =>
     `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
   telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
@@ -43,11 +48,19 @@ export const MESSAGES = {
     "• /project — 현재 프로젝트 바꾸기\n" +
     "• /project 이름 — 새 프로젝트를 만들고 현재 프로젝트로 지정\n" +
     `• 책장에서 기록 찾기·수정: ${appUrl}/drawer`,
-  noProject: "먼저 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
+  noProject:
+    "지금 기록을 넣을 책이 없어요. 이전 책은 끝났거나 아직 만들지 않았어요.\n" +
+    "새로 하는 프로젝트 이름만 보내 주세요.\n예) 결제 시스템 개편\n" +
+    "진행 중인 다른 책이 있다면 /project 로 고를 수 있어요.",
+  firstProjectCreated: (title: string) =>
+    `📕 '${title}' 책을 만들었어요. 이름은 웹 책장에서 바꿀 수 있어요.\n` +
+    "다른 프로젝트를 하게 되면 /project 새이름 으로 만들고, /project 로 바꿀 수 있어요.",
   projectTitleInvalid: `프로젝트 이름은 1~${MAX_PROJECT_TITLE}자로 보내 주세요.`,
   projectCreated: (title: string) => `프로젝트를 만들었어요: ${title}\n오늘 한 일을 남기려면 아래 버튼을 눌러 주세요.`,
   projectList: "현재 프로젝트를 골라 주세요.\n새 프로젝트는 /project 이름 으로 만들 수 있어요.",
   currentProjectSet: (title: string) => `현재 프로젝트: ${title}`,
+  currentProjectSetMidSession: (title: string, sessionBook: string) =>
+    `현재 프로젝트: ${title}\n지금 답하고 있는 기록은 '${sessionBook}' 책에 들어가요. 마지막 카드에서 [프로젝트 변경]으로 옮길 수 있어요. '${title}'은 다음 기록부터 적용돼요.`,
   tooLong: `${MAX_LOG_LENGTH}자 이내로 보내 주세요.`,
   answerTooLong: `${ANSWER_MAX_LENGTH}자 이내로 줄여서 보내 주세요.`,
   generalizeFailed: "지금은 정리하지 못했어요. 잠시 뒤 다시 보내 주세요.",
@@ -58,8 +71,8 @@ export const MESSAGES = {
   cancelled: "취소했어요. 아무것도 저장하지 않았어요.",
   expired: "만료된 카드예요. 다시 보내 주세요.",
   pickProject: "어느 프로젝트에 넣을까요?",
-  sessionNotify: `오늘 한 일, 서랍에 넣어두세요 🗄️\n${SESSION_HINT}\n\n${QUESTIONS[1]}`,
-  sessionUser: `기록을 시작할게요 🗄️\n${SESSION_HINT}\n\n${QUESTIONS[1]}`,
+  sessionNotify: (book: string) => `오늘 한 일, 서랍에 넣어두세요 🗄️\n${sessionHint(book)}\n\n${QUESTIONS[1]}`,
+  sessionUser: (book: string) => `기록을 시작할게요 🗄️\n${sessionHint(book)}\n\n${QUESTIONS[1]}`,
   sessionResume: "진행 중인 기록이 있어요. 이어서 답해 주세요.",
   outsideSession: "지금은 기록 시간이 아니에요.\n오늘 한 일을 남기려면 아래 버튼을 눌러 주세요.",
   dailyLimit: "오늘은 기록을 충분히 남기셨어요. 내일 다시 만나요 🗄️",

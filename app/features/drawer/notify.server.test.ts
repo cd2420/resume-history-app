@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createFakeTelegram } from "~/features/telegram/fake-telegram";
 import { TelegramError } from "~/features/telegram/telegram.server";
 import { FakeDrawerRepo } from "./fake-repo";
-import { DAILY_QUESTION, runHourlyNotify } from "./notify.server";
+import { MESSAGES } from "./messages";
+import { runHourlyNotify } from "./notify.server";
+
+const DAILY_QUESTION = MESSAGES.sessionNotify("책");
 
 const A = "00000000-0000-4000-8000-0000000000aa";
 const B = "00000000-0000-4000-8000-0000000000bb";
@@ -125,12 +128,12 @@ describe("hourly prompt sessions", () => {
     expect((await run()).due).toBe(2);
   });
 
-  test("a user without a book is told to make one", async () => {
+  test("a user without a book is asked for its name instead of question 1", async () => {
     repo.currentProject.delete(A);
 
     await run();
 
-    expect(telegram.sent.find((m) => m.chatId === 1)?.text).toContain("/project");
+    expect(telegram.sent.find((m) => m.chatId === 1)?.text).toBe(MESSAGES.noProject);
   });
 });
 

@@ -1,6 +1,5 @@
 import { kstDate, kstHour } from "~/lib/kst";
 import { TelegramError, type TelegramClient } from "~/features/telegram/telegram.server";
-import { MESSAGES } from "./messages";
 import { openRecording } from "./record.server";
 import type { DrawerRepo } from "./repo";
 
@@ -20,9 +19,6 @@ export interface NotifyResult {
   blocked: number;
   skipped: number;
 }
-
-/** The hourly prompt: it opens a recording session and asks question 1. */
-export const DAILY_QUESTION = MESSAGES.sessionNotify;
 
 // Telegram FAQ: bulk sends above ~30 messages/second get 429. Stay well under.
 const SEND_INTERVAL_MS = 40;

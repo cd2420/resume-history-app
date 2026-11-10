@@ -95,11 +95,29 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
 
   // Only answers inside a recording session reach the AI; anything else gets a pointer.
   const session = await repo.getOpenSession(link.userId, deps.now());
-  if (!session) {
-    await telegram.sendMessage(chatId, MESSAGES.outsideSession, recordButton());
+  if (session) {
+    await answerQuestion(deps, session, text);
     return;
   }
-  await answerQuestion(deps, session, text);
+  // A user without a book was asked for its name (MESSAGES.noProject): the reply becomes the
+  // first book and recording starts right away. No AI is involved.
+  if (!(await repo.getCurrentProject(link.userId))) {
+    await startFirstProject(deps, link, chatId, text);
+    return;
+  }
+  await telegram.sendMessage(chatId, MESSAGES.outsideSession, recordButton());
+}
+
+async function startFirstProject(deps: BotDeps, link: TelegramLink, chatId: number, title: string) {
+  if (title.length > MAX_PROJECT_TITLE) {
+    await deps.telegram.sendMessage(chatId, MESSAGES.projectTitleInvalid);
+    return;
+  }
+  const project = await deps.repo.createProject(link.userId, title);
+  await deps.repo.setCurrentProject(link.userId, project.id);
+  await deps.telegram.sendMessage(chatId, MESSAGES.firstProjectCreated(project.title));
+  // ponytail: recorded as source "user" even when the hourly prompt asked; track it if response-rate metrics need it.
+  await openRecording(deps, link.userId, chatId, "user");
 }
 
 async function createProject(deps: BotDeps, link: TelegramLink, chatId: number, title: string) {
@@ -181,7 +199,17 @@ async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
         return;
       }
       toast = MESSAGES.currentProjectSet(project.title);
-      await telegram.editMessageText(chatId, messageId, MESSAGES.currentProjectSet(project.title));
+      // An open session keeps the book it opened with, so say where this answer still goes.
+      const session = await repo.getOpenSession(link.userId, deps.now());
+      const sessionBook =
+        session && session.projectId !== project.id ? await repo.getProject(link.userId, session.projectId) : null;
+      await telegram.editMessageText(
+        chatId,
+        messageId,
+        sessionBook
+          ? MESSAGES.currentProjectSetMidSession(project.title, sessionBook.title)
+          : MESSAGES.currentProjectSet(project.title),
+      );
       return;
     }
 

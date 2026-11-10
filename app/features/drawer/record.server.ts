@@ -55,7 +55,10 @@ export async function openRecording(
     );
     return "exists";
   }
-  await telegram.sendMessage(chatId, source === "notify" ? MESSAGES.sessionNotify : MESSAGES.sessionUser);
+  await telegram.sendMessage(
+    chatId,
+    source === "notify" ? MESSAGES.sessionNotify(project.title) : MESSAGES.sessionUser(project.title),
+  );
   return "opened";
 }
 

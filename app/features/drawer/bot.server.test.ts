@@ -216,6 +216,28 @@ describe("daily answer", () => {
     expect((await repo.getCurrentProject(USER_A))?.title).toBe("결제 시스템 개편");
   });
 
+  test("no project: a plain message becomes the first book and question 1 follows, without the model", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    expect(lastText()).toBe(MESSAGES.noProject);
+
+    await handleUpdate(deps, text(TG_A, "결제 시스템 개편"));
+
+    expect((await repo.getCurrentProject(USER_A))?.title).toBe("결제 시스템 개편");
+    const texts = telegram.sent.map((m) => m.text);
+    expect(texts).toContain(MESSAGES.firstProjectCreated("결제 시스템 개편"));
+    expect(lastText()).toBe(MESSAGES.sessionUser("결제 시스템 개편"));
+    expect(repo.sessions[0]).toMatchObject({ status: "open", step: 1, source: "user" });
+    expect(llmCreate).not.toHaveBeenCalled();
+  });
+
+  test("no project: an over-long first book name is refused", async () => {
+    await handleUpdate(deps, text(TG_A, "가".repeat(201)));
+
+    expect(lastText()).toBe(MESSAGES.projectTitleInvalid);
+    expect(await repo.listProjects(USER_A)).toHaveLength(0);
+    expect(repo.sessions).toHaveLength(0);
+  });
+
   test("/project lists projects and a button switches the current one", async () => {
     withProject(USER_A, "결제 시스템 개편");
     const other = repo.addProject(USER_A, "정산 배치");
@@ -323,7 +345,7 @@ describe("recording sessions", () => {
     await handleUpdate(deps, text(TG_A, "아무 말"));
     await pressLabel(TG_A, "지금 기록하기");
 
-    expect(lastText()).toBe(MESSAGES.sessionUser);
+    expect(lastText()).toBe(MESSAGES.sessionUser("결제 시스템 개편"));
     expect(repo.sessions[0]).toMatchObject({ status: "open", step: 1, source: "user", kstDate: "2026-11-10" });
     // 2026-11-10 23:30 KST -> the session closes at 2026-11-11 00:00 KST
     expect(repo.sessions[0].expiresAt.toISOString()).toBe("2026-11-10T15:00:00.000Z");
@@ -423,3 +445,28 @@ describe("recording sessions", () => {
   });
 });
 
+
+describe("switching project mid-session", () => {
+  test("says the open session still goes to its original book", async () => {
+    linkUser(USER_A, TG_A);
+    withProject(USER_A, "결제 시스템 개편");
+    const other = repo.addProject(USER_A, "정산 배치");
+    await handleUpdate(deps, text(TG_A, "/record"));
+    await handleUpdate(deps, text(TG_A, RAW));
+
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "current", projectId: other.id })));
+
+    expect(lastText()).toBe(MESSAGES.currentProjectSetMidSession("정산 배치", "결제 시스템 개편"));
+    expect(repo.sessions[0].projectId).not.toBe(other.id);
+  });
+
+  test("keeps the plain confirmation when no session is open", async () => {
+    linkUser(USER_A, TG_A);
+    withProject(USER_A);
+    const other = repo.addProject(USER_A, "정산 배치");
+
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "current", projectId: other.id })));
+
+    expect(lastText()).toBe(MESSAGES.currentProjectSet("정산 배치"));
+  });
+});
