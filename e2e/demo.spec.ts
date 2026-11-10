@@ -159,3 +159,21 @@ test("demo: the hourly prompt is skipped once today is logged", async ({ page })
   await page.getByRole("button", { name: /21:00 알림 시뮬레이션/ }).click();
   await expect(page.getByTestId("transcript")).toContainText("알림 대상이 아니에요");
 });
+
+test("demo: saving an interview draft lands on the bookshelf", async ({ page }) => {
+  await signInFresh(page);
+  await page.goto("/onboarding");
+  await settled(page);
+  await expect(page.getByRole("link", { name: "책장" })).toHaveAttribute("href", "/drawer");
+
+  await page.getByLabel("답변").fill("A사에서 결제 시스템을 개편했어요");
+  await page.getByRole("button", { name: "보내기" }).click();
+  await page.getByRole("button", { name: "이 프로젝트 정리하기" }).click();
+  await expect(page.getByRole("region", { name: "프로젝트 초안" })).toBeVisible();
+  await page.getByLabel("프로젝트명").fill("인터뷰로 복원한 프로젝트");
+  await page.getByRole("button", { name: "저장" }).click();
+
+  await expect(page).toHaveURL(/\/drawer$/);
+  await settled(page);
+  await expect(shelf(page, "새로 꽂힌 책").getByRole("link", { name: "인터뷰로 복원한 프로젝트 열기" })).toBeVisible();
+});

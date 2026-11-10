@@ -88,14 +88,15 @@ export async function action({ request }: Route.ActionArgs) {
       const draft = projectDraftSchema.safeParse(input.draft);
       if (!draft.success) return data({ error: CAREER_MESSAGES.invalid }, { status: 400, headers });
       getDemoStore().addDraftProject(userId, draft.data);
-      throw redirect("/drawer", { headers });
+    } else {
+      await saveProjectDraft(supabase, input.draft);
     }
-    await saveProjectDraft(supabase, input.draft);
   } catch (error) {
     const { message, status } = toUserError(error);
     return data({ error: message }, { status, headers });
   }
-  throw redirect("/career", { headers });
+  // The saved project shows up on the bookshelf's "newly shelved" shelf.
+  throw redirect("/drawer", { headers });
 }
 
 export default function Onboarding() {
@@ -149,8 +150,8 @@ export default function Onboarding() {
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <h1 className="font-bold">경력 인터뷰</h1>
         <nav className="flex gap-3 text-sm text-slate-400">
-          <Link to="/career" className="underline">
-            내 경력
+          <Link to="/drawer" className="underline">
+            책장
           </Link>
           <Form method="post" action="/logout">
             <button type="submit" className="underline">
