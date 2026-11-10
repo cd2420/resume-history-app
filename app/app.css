@@ -1,15 +1,117 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+/*
+ * 이력서랍: an archive of drawers. Dark is an ink-dark stack room, light is unbleached
+ * archival board. One accent, brass, for actions, the current state and label holders.
+ */
+@theme inline {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  --tracking-title: -0.015em;
+
+  --color-ground: var(--ground);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-brass: var(--brass);
+  --color-brass-ink: var(--brass-ink);
+  --color-brass-soft: var(--brass-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-wood: var(--wood);
+  --color-wood-dark: var(--wood-dark);
+  --color-label: var(--label);
+  --color-label-ink: var(--label-ink);
+  --color-label-muted: var(--label-muted);
+  --color-cloth-ink: var(--cloth-ink);
+}
+
+:root {
+  --ground: #e6e3dc;
+  --raised: #f2f0eb;
+  --sunken: #dad6cd;
+  --line: #c3bcaf;
+  --ink: #1d1a15;
+  --muted: #5b5449;
+  --faint: #6f675a;
+  --brass: #7d5f1e;
+  --brass-ink: #fbf7ee;
+  --brass-soft: #eadfc2;
+  --danger: #9c3424;
+  --danger-soft: #f1d9d3;
+  --ok: #3a6638;
+  --ok-soft: #d9e6d5;
+  --wood: #8a6a4c;
+  --wood-dark: #5e4632;
+  --wood-top: #a5845f;
+  --contact-shadow: rgba(40, 28, 16, 0.45);
+  /* Book materials: the same paper and thread in both rooms. */
+  --label: #efe7d4;
+  --label-ink: #241f1a;
+  --label-muted: #4f473e;
+  --cloth-ink: #f6f1e6;
+  --page-edge: #efe7d4;
+  --page-edge-line: #d6cbb2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #161410;
+    --raised: #201d18;
+    --sunken: #100e0b;
+    --line: #3a342b;
+    --ink: #ece6da;
+    --muted: #a99f8f;
+    --faint: #8e8373;
+    --brass: #cfa75c;
+    --brass-ink: #1c160c;
+    --brass-soft: #3a301c;
+    --danger: #e58a78;
+    --danger-soft: #3d1e18;
+    --ok: #93c48d;
+    --ok-soft: #1d2f1c;
+    --wood: #5a4634;
+    --wood-dark: #3b2d22;
+    --wood-top: #6e5640;
+    --contact-shadow: rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
 }
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+::selection {
+  background: var(--brass);
+  color: var(--brass-ink);
+}
+
+* {
+  caret-color: var(--brass);
+  scrollbar-color: var(--line) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }

@@ -1,3 +1,5 @@
+import { BellRing, CircleCheck, Send, TriangleAlert, UserX } from "lucide-react";
+import type { ReactNode } from "react";
 import { data, Form, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 
@@ -5,6 +7,7 @@ import { demoLogoutHeaders } from "~/features/demo/demo-auth.server";
 import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { TelegramConnect } from "~/features/drawer/components/TelegramSetup";
+import { ICON, ui } from "~/features/drawer/components/ui";
 import { deleteAccount } from "~/features/drawer/deps.server";
 import { DrawerDbError } from "~/features/drawer/drawer.server";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
@@ -94,83 +97,107 @@ async function signOutHeaders(request: Request, isDemo: boolean): Promise<Header
   return headers;
 }
 
-const button = "shrink-0 whitespace-nowrap rounded bg-sky-600 px-3 py-2 text-sm font-semibold disabled:opacity-50";
-const subtle = "shrink-0 whitespace-nowrap rounded bg-slate-700 px-3 py-2 text-sm";
+/** One settings row: what it is on the left, the control on the right. */
+function Row({ icon, title, description, children }: { icon: ReactNode; title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-4 py-6 md:grid-cols-[15rem_1fr] md:gap-8">
+      <div className="flex flex-col gap-1">
+        <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-title">
+          {icon}
+          {title}
+        </h2>
+        <p className="text-sm leading-relaxed text-muted">{description}</p>
+      </div>
+      <div className="flex min-w-0 flex-col gap-3">{children}</div>
+    </section>
+  );
+}
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
   const { telegram, notifyHour, isDemo, botUsername, telegramTerm } = loaderData;
   const busy = useNavigation().state !== "idle";
 
   return (
-    <main className="min-h-screen bg-slate-900 px-4 py-6 text-slate-50">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    <main className="min-h-screen bg-ground text-ink">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
         <DrawerNav isDemo={isDemo} />
+        <h1 className="text-3xl leading-[1.3] font-bold tracking-title">설정</h1>
         <Flash error={actionData?.error} done={actionData?.done} />
 
-        <section className="flex flex-col gap-3 rounded bg-slate-800 p-4">
-          <h2 className="text-lg font-semibold">텔레그램</h2>
-          {telegram ? (
-            <>
-              <p data-testid="telegram-status" className="text-sm">
-                연결됨 ✅
-                {telegram.blocked && (
-                  <span className="ml-2 text-amber-400">봇이 차단돼 알림을 못 보내고 있어요. 봇에 아무 메시지나 보내면 풀려요.</span>
-                )}
-              </p>
-              <Form method="post">
-                <button name="intent" value="unlink" disabled={busy} className={subtle}>
-                  연결 해제
-                </button>
-              </Form>
-            </>
-          ) : (
-            <>
-              <p data-testid="telegram-status" className="text-sm text-slate-300">
-                아직 연결하지 않았어요.
-              </p>
-              <TelegramConnect isDemo={isDemo} botUsername={botUsername} term={telegramTerm} />
-            </>
-          )}
-        </section>
+        <div className="flex flex-col divide-y divide-line border-y border-line">
+          <Row
+            icon={<Send {...ICON} aria-hidden className="text-brass" />}
+            title="텔레그램"
+            description="봇이 정한 시간에 오늘 한 일을 물어보고, 답을 이 서랍에 넣어요."
+          >
+            {telegram ? (
+              <>
+                <p data-testid="telegram-status" className="inline-flex flex-wrap items-center gap-2 text-sm">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-soft px-2.5 py-0.5 font-medium text-ok">
+                    <CircleCheck size={14} strokeWidth={1.5} aria-hidden />
+                    연결됨
+                  </span>
+                  {telegram.blocked && (
+                    <span className="inline-flex items-start gap-1.5 text-muted">
+                      <TriangleAlert size={14} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-danger" />
+                      봇이 차단돼 알림을 못 보내고 있어요. 봇에 아무 메시지나 보내면 풀려요.
+                    </span>
+                  )}
+                </p>
+                <Form method="post">
+                  <button name="intent" value="unlink" disabled={busy} className={ui.secondary}>
+                    연결 해제
+                  </button>
+                </Form>
+              </>
+            ) : (
+              <>
+                <p data-testid="telegram-status" className="text-sm text-muted">
+                  아직 연결하지 않았어요.
+                </p>
+                <TelegramConnect isDemo={isDemo} botUsername={botUsername} term={telegramTerm} />
+              </>
+            )}
+          </Row>
 
-        <section className="flex flex-col gap-3 rounded bg-slate-800 p-4">
-          <h2 className="text-lg font-semibold">알림 시간</h2>
-          <Form method="post" className="flex items-center gap-2">
-            <input type="hidden" name="intent" value="notify_hour" />
-            <select
-              name="hour"
-              aria-label="알림 시간"
-              defaultValue={notifyHour === null ? "off" : String(notifyHour)}
-              className="min-w-0 rounded bg-slate-900 px-3 py-2 text-sm"
-            >
-              <option value="off">알림 끄기</option>
-              {HOURS.map((hour) => (
-                <option key={hour} value={hour}>
-                  매일 {String(hour).padStart(2, "0")}:00 (한국 시간)
-                </option>
-              ))}
-            </select>
-            <button type="submit" disabled={busy} className={button}>
-              저장
-            </button>
-          </Form>
-          <p className="text-xs text-slate-400">그날 이미 기록했다면 알림을 보내지 않아요.</p>
-        </section>
+          <Row
+            icon={<BellRing {...ICON} aria-hidden className="text-brass" />}
+            title="알림 시간"
+            description="그날 이미 기록했다면 알림을 보내지 않아요."
+          >
+            <Form method="post" className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="intent" value="notify_hour" />
+              <select name="hour" aria-label="알림 시간" defaultValue={notifyHour === null ? "off" : String(notifyHour)} className={ui.input}>
+                <option value="off">알림 끄기</option>
+                {HOURS.map((hour) => (
+                  <option key={hour} value={hour}>
+                    매일 {String(hour).padStart(2, "0")}:00 (한국 시간)
+                  </option>
+                ))}
+              </select>
+              <button type="submit" disabled={busy} className={ui.primary}>
+                저장
+              </button>
+            </Form>
+          </Row>
 
-        <section className="flex flex-col gap-3 rounded bg-slate-800 p-4">
-          <h2 className="text-lg font-semibold">회원 탈퇴</h2>
-          <p className="text-sm text-slate-300">책장·기록·텔레그램 연결이 모두 지워지고 되돌릴 수 없어요.</p>
-          <div>
-            <ConfirmDelete
-              label="회원 탈퇴"
-              question="정말 탈퇴할까요? 모든 기록이 바로 지워져요."
-              intent="delete_account"
-              fields={{}}
-              busy={busy}
-              confirmLabel="탈퇴하기"
-            />
-          </div>
-        </section>
+          <Row
+            icon={<UserX {...ICON} aria-hidden className="text-danger" />}
+            title="회원 탈퇴"
+            description="책장·기록·텔레그램 연결이 모두 지워지고 되돌릴 수 없어요."
+          >
+            <div>
+              <ConfirmDelete
+                label="회원 탈퇴"
+                question="정말 탈퇴할까요? 모든 기록이 바로 지워져요."
+                intent="delete_account"
+                fields={{}}
+                busy={busy}
+                confirmLabel="탈퇴하기"
+              />
+            </div>
+          </Row>
+        </div>
       </div>
     </main>
   );

@@ -15,7 +15,7 @@ async function signInFresh(page: Page) {
   await page.goto("/login");
   await settled(page);
   await expect(page.getByTestId("demo-banner")).toBeVisible();
-  await page.getByLabel("이메일").fill("demo@example.com");
+  await page.getByLabel("이메일", { exact: true }).fill("demo@example.com");
   await page.getByLabel("비밀번호").fill("anything");
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(page).toHaveURL(/\/drawer/);
@@ -36,7 +36,7 @@ async function signInFresh(page: Page) {
 }
 
 function shelf(page: Page, name: string) {
-  return page.getByTestId("shelf").filter({ has: page.getByText(`📇 ${name}`, { exact: true }) });
+  return page.getByTestId("shelf").filter({ has: page.getByRole("heading", { name, exact: true }) });
 }
 
 async function sendToBot(page: Page, text: string) {
@@ -70,7 +70,8 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
 
   // M1: a first-time user links the simulator bot straight from the bookshelf's setup card.
   const setup = page.getByTestId("telegram-setup");
-  await expect(setup).toContainText("1. 텔레그램 연결");
+  await setup.getByText("시작하기").click();
+  await expect(setup).toContainText("텔레그램 연결");
   await setup.getByRole("checkbox", { name: "동의합니다" }).check();
   await setup.getByRole("button", { name: "텔레그램 연결하기" }).click();
   await page.getByTestId("deep-link").click();
@@ -106,18 +107,19 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
   await page.getByRole("link", { name: "오픈소스 기여 열기" }).click();
   await expect(page).toHaveURL(/\/drawer\/books\//);
   await settled(page);
-  await expect(page.getByText("● 진행 중")).toBeVisible();
+  await expect(page.getByText("진행 중", { exact: true })).toBeVisible();
   await page.getByText("책 관리").click();
   await page.getByLabel("칸으로 이동").selectOption({ label: "오픈소스" });
   await page.getByRole("button", { name: "칸으로 이동" }).click();
   await expect(page.getByRole("status")).toContainText("칸을 옮겼어요");
 
-  await page.getByRole("link", { name: "← 책장" }).click();
+  await page.getByRole("link", { name: "책장으로 돌아가기" }).click();
   await settled(page);
   await expect(shelf(page, "오픈소스").getByTestId("book")).toHaveCount(1);
   await expect(shelf(page, "새로 꽂힌 책").getByTestId("book")).toHaveCount(1);
 
   // Find the log by tag, across books, and jump to it.
+  await page.getByText("필터", { exact: true }).click();
   await page.getByLabel("태그 필터").selectOption("Redis");
   await page.getByRole("button", { name: "찾기" }).click();
   await expect(page).toHaveURL(/tag=Redis/);
@@ -152,13 +154,6 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
   await edited.getByRole("button", { name: "삭제" }).click();
   await edited.getByRole("button", { name: "지우기" }).click();
   await expect(page.getByTestId("log")).toHaveCount(0);
-
-  // Older logs without tags can be tagged in one click.
-  await page.goto("/drawer");
-  await settled(page);
-  await page.getByRole("button", { name: /태그 채우기/ }).click();
-  await expect(page.getByRole("status")).toContainText("기록 2개에 태그를 붙였어요");
-  await expect(page.getByRole("button", { name: /태그 채우기/ })).toHaveCount(0);
 });
 
 test("demo: the hourly prompt is skipped once today is logged", async ({ page }) => {
@@ -252,4 +247,36 @@ test("demo: ending a project turns its logs into a STAR summary with blanks and 
   await expect(page.getByRole("status")).toContainText("STAR를 저장했어요");
   await expect(summary.getByTestId("star-status")).toContainText("저장됨");
   await expect(summary.getByLabel("R · 결과")).toHaveValue("응답 지연이 줄어 결제 실패가 감소했다.");
+});
+
+test("demo: a saved email is prefilled on the login page after logging out", async ({ page }) => {
+  await signInFresh(page);
+  const logOut = async () => {
+    await page.getByRole("button", { name: "로그아웃" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await settled(page);
+  };
+  await logOut();
+
+  await page.getByLabel("이메일", { exact: true }).fill("saved@example.com");
+  await page.getByLabel("비밀번호").fill("anything");
+  await page.getByRole("checkbox", { name: "이메일 저장" }).check();
+  await page.getByRole("button", { name: "로그인" }).click();
+  await expect(page).toHaveURL(/\/drawer$/);
+  await settled(page);
+  await logOut();
+
+  await expect(page.getByLabel("이메일", { exact: true })).toHaveValue("saved@example.com");
+  await expect(page.getByRole("checkbox", { name: "이메일 저장" })).toBeChecked();
+  await expect(page.getByLabel("비밀번호")).toHaveValue("");
+
+  // Unchecking and signing in again forgets the email.
+  await page.getByLabel("비밀번호").fill("anything");
+  await page.getByRole("checkbox", { name: "이메일 저장" }).uncheck();
+  await page.getByRole("button", { name: "로그인" }).click();
+  await expect(page).toHaveURL(/\/drawer$/);
+  await settled(page);
+  await logOut();
+  await expect(page.getByLabel("이메일", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("checkbox", { name: "이메일 저장" })).not.toBeChecked();
 });

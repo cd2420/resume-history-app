@@ -181,7 +181,6 @@ export class DemoStore extends FakeDrawerRepo {
       getBookshelf: async () => ({
         shelves: ownedShelves().map(toShelf),
         books: sortBooks(this.projects.filter((p) => p.userId === userId).map((p) => this.bookSummary(userId, p))),
-        untaggedCount: this.logs.filter((l) => l.userId === userId && !(l.tags ?? []).length).length,
         tags: this.tagsOf(userId),
       }),
       search: async (filters) => {
@@ -250,11 +249,6 @@ export class DemoStore extends FakeDrawerRepo {
         const log = ownedLog(logId);
         if (log) log.tags = normalizeTags(tags);
       },
-      listUntaggedLogs: async (limit) =>
-        this.logs
-          .filter((l) => l.userId === userId && l.id && !(l.tags ?? []).length)
-          .slice(0, limit)
-          .map((l) => ({ id: l.id!, content: l.content })),
       listTags: async () => this.tagsOf(userId),
 
       getConsentTerms: async () => DEMO_CONSENT_TERMS,
@@ -299,8 +293,10 @@ export class DemoStore extends FakeDrawerRepo {
         if (hour === null) this.notifyHour.delete(userId);
         else this.notifyHour.set(userId, hour);
       },
-      createProject: async (title) => {
+      createProject: async (title, shelfId = null) => {
         const project = this.addProject(userId, title);
+        // Like moveBook: a shelf that is not the user's own is ignored.
+        if (shelfId && ownedShelves().some((s) => s.id === shelfId)) this.shelveBook(project.id, shelfId);
         if (!this.currentProject.has(userId)) this.currentProject.set(userId, project.id);
       },
       renameProject: async (projectId, title) => {

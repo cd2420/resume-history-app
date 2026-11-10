@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
-import { generalize, GeneralizeError, MAX_LOG_LENGTH, suggestTags } from "./generalize.server";
+import { generalize, GeneralizeError, MAX_LOG_LENGTH } from "./generalize.server";
 
 const RAW = "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임";
 
@@ -111,23 +111,5 @@ describe("generalize", () => {
     await generalize(llm, RAW);
 
     expect(create.mock.calls[0][0].instructions).not.toContain("사용자가 이미 쓰는 태그:");
-  });
-});
-
-describe("suggestTags", () => {
-  test("returns normalized tags for an already generalized log with store: false", async () => {
-    const { llm, create } = llmReturning(fakeResponse(JSON.stringify({ tags: ["redis", "캐시"] })));
-
-    await expect(suggestTags(llm, "대형 금융사 결제 API에 캐시 적용", ["Redis"])).resolves.toEqual(["Redis", "캐시"]);
-    const body = create.mock.calls[0][0];
-    expect(body.store).toBe(false);
-    expect(body.text.format.name).toBe("log_tags");
-  });
-
-  test("fails as invalid on a schema mismatch and as empty on blank content", async () => {
-    const { llm } = llmReturning(fakeResponse(JSON.stringify({ tag: "x" })));
-
-    expect(await reasonOf(suggestTags(llm, "x"))).toBe("invalid");
-    expect(await reasonOf(suggestTags(llm, "  "))).toBe("empty");
   });
 });

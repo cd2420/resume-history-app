@@ -5,7 +5,6 @@ import {
   type BookLog,
   type BookshelfView,
   type BookSummary,
-  FILL_TAGS_BATCH,
   monthBounds,
   type SearchFilters,
   type SearchHit,
@@ -13,7 +12,6 @@ import {
   sortBooks,
 } from "./bookshelf";
 import { DrawerWebError } from "./drawer-web.server";
-import { type DrawerLlmClient, GeneralizeError, suggestTags } from "./generalize.server";
 import { normalizeTags, topTags } from "./tags";
 
 /** Bookshelf operations bound to one signed-in user (Supabase + RLS, or demo memory). */
@@ -28,7 +26,6 @@ export interface BookshelfStore {
   /** null puts the book back on the "newly shelved" shelf. */
   moveBook(bookId: string, shelfId: string | null): Promise<void>;
   updateLogTags(logId: string, tags: string[]): Promise<void>;
-  listUntaggedLogs(limit: number): Promise<{ id: string; content: string }[]>;
   listTags(): Promise<string[]>;
 }
 
@@ -82,14 +79,12 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
 
   const store: BookshelfStore = {
     async getBookshelf() {
-      const [rows, shelves, current, untagged, tags] = await Promise.all([
+      const [rows, shelves, current, tags] = await Promise.all([
         supabase.rpc("drawer_bookshelf"),
         listShelves(),
         currentProjectId(),
-        supabase.from("daily_logs").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("tags", "{}"),
         store.listTags(),
       ]);
-      if (untagged.error) throw new DrawerWebError("untaggedCount", untagged.error.code);
       const books: BookSummary[] = (check("bookshelf", rows) as BookshelfRow[]).map((row) => ({
         id: row.book_id,
         title: row.title,
@@ -101,7 +96,7 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
         isCurrent: row.book_id === current,
         createdAt: row.created_at,
       }));
-      return { shelves, books: sortBooks(books), untaggedCount: untagged.count ?? 0, tags };
+      return { shelves, books: sortBooks(books), tags };
     },
 
     async search(filters) {
@@ -213,18 +208,6 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
       );
     },
 
-    async listUntaggedLogs(limit) {
-      return check(
-        "listUntaggedLogs",
-        await supabase
-          .from("daily_logs")
-          .select("id, content")
-          .eq("user_id", userId)
-          .eq("tags", "{}")
-          .order("log_date", { ascending: false })
-          .limit(limit),
-      );
-    },
 
     async listTags() {
       const rows = check(
@@ -241,32 +224,4 @@ export function createSupabaseBookshelf(supabase: SupabaseClient, userId: string
     },
   };
   return store;
-}
-
-/**
- * Tags up to FILL_TAGS_BATCH logs that have none. Sends only the stored (generalized)
- * text. A log the model leaves without tags stays untagged and can be tagged by hand.
- */
-export async function fillMissingTags(
-  store: BookshelfStore,
-  llm: DrawerLlmClient,
-): Promise<{ tagged: number; failed: number }> {
-  const [logs, existing] = await Promise.all([store.listUntaggedLogs(FILL_TAGS_BATCH), store.listTags()]);
-  const known = [...existing];
-  let tagged = 0;
-  let failed = 0;
-  for (const log of logs) {
-    try {
-      const tags = await suggestTags(llm, log.content, known);
-      if (tags.length === 0) continue;
-      await store.updateLogTags(log.id, tags);
-      known.push(...tags.filter((tag) => !known.includes(tag)));
-      tagged++;
-    } catch (error) {
-      if (!(error instanceof GeneralizeError)) throw error;
-      console.error("suggestTags failed", error.reason);
-      failed++;
-    }
-  }
-  return { tagged, failed };
 }

@@ -1,6 +1,10 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
+
+import { AuthShell } from "~/features/drawer/components/AuthShell";
+import { ui } from "~/features/drawer/components/ui";
 import { z } from "zod";
 
+import { readRememberedEmail, withRememberedEmail } from "~/features/auth/remember-email.server";
 import { demoLoginHeaders, hasDemoSession } from "~/features/demo/demo-auth.server";
 import { getEnv } from "~/lib/env.server";
 import { createSupabase } from "~/lib/supabase.server";
@@ -19,16 +23,17 @@ export function meta({}: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const isDeleted = new URL(request.url).searchParams.get("deleted") === "1";
+  const rememberedEmail = await readRememberedEmail(request);
   if (getEnv().isDemo) {
     if (hasDemoSession(request)) throw redirect("/drawer");
-    return data({ isDemo: true, isDeleted });
+    return data({ isDemo: true, isDeleted, rememberedEmail });
   }
   const { supabase, headers } = createSupabase(request);
   const { data: auth } = await supabase.auth.getClaims();
   if (auth?.claims.sub) {
     throw redirect("/drawer", { headers });
   }
-  return data({ isDemo: false, isDeleted }, { headers });
+  return data({ isDemo: false, isDeleted, rememberedEmail }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -40,9 +45,17 @@ export async function action({ request }: Route.ActionArgs) {
   if (!parsed.success) {
     return data({ error: LOGIN_FAILED }, { status: 400 });
   }
+  const env = getEnv();
+  // Only touched after a successful sign-in; never the password.
+  const rememberEmail = (headers: Headers) =>
+    withRememberedEmail(
+      headers,
+      form.get("rememberEmail") === "on" ? parsed.data.email : null,
+      env.APP_URL.startsWith("https://"),
+    );
 
   // Demo mode: any well-formed email and password signs in to the sample data.
-  if (getEnv().isDemo) throw redirect("/drawer", { headers: demoLoginHeaders() });
+  if (env.isDemo) throw redirect("/drawer", { headers: await rememberEmail(demoLoginHeaders()) });
 
   const { supabase, headers } = createSupabase(request);
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -51,7 +64,7 @@ export async function action({ request }: Route.ActionArgs) {
     console.error("login failed", error.code ?? error.status);
     return data({ error: LOGIN_FAILED }, { status: 400, headers });
   }
-  throw redirect("/drawer", { headers });
+  throw redirect("/drawer", { headers: await rememberEmail(headers) });
 }
 
 export default function Login({ loaderData, actionData }: Route.ComponentProps) {
@@ -59,58 +72,68 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
   const isSubmitting = useNavigation().formData != null;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-50">
-      <Form method="post" className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-2xl font-bold">로그인</h1>
+    <AuthShell>
+      <Form method="post" className="flex flex-col gap-4">
+        <h1 className="text-lg font-semibold tracking-title">로그인</h1>
         {loaderData?.isDeleted && (
-          <p role="status" className="rounded bg-slate-800 px-3 py-2 text-sm text-slate-200">
+          <p role="status" className="rounded-md border border-ok/40 bg-ok-soft px-3 py-2 text-sm text-ink">
             탈퇴했어요. 모든 기록을 지웠어요.
           </p>
         )}
         {loaderData?.isDemo && (
-          <p className="rounded bg-amber-950 px-3 py-2 text-sm text-amber-300">
+          <p className="rounded-md bg-brass-soft px-3 py-2 text-sm text-ink">
             데모 모드: 아무 이메일과 비밀번호로 로그인할 수 있어요.
           </p>
         )}
         <label className="flex flex-col gap-1">
-          <span className="text-sm">이메일</span>
+          <span className={ui.label}>이메일</span>
           <input
             name="email"
             type="email"
             autoComplete="email"
+            defaultValue={loaderData?.rememberedEmail ?? undefined}
             required
-            className="rounded bg-slate-800 px-3 py-2"
+            className={`${ui.input} py-2.5`}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm">비밀번호</span>
+          <span className={ui.label}>비밀번호</span>
           <input
             name="password"
             type="password"
             autoComplete="current-password"
             required
-            className="rounded bg-slate-800 px-3 py-2"
+            className={`${ui.input} py-2.5`}
           />
         </label>
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input
+            name="rememberEmail"
+            type="checkbox"
+            defaultChecked={loaderData?.rememberedEmail != null}
+            className="size-4 accent-[var(--brass)]"
+          />
+          이메일 저장
+        </label>
         {actionData?.error && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {actionData.error}
           </p>
         )}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded bg-sky-600 py-2 font-semibold disabled:opacity-50"
+          className={`${ui.primary} py-2.5`}
         >
           {isSubmitting ? "로그인 중…" : "로그인"}
         </button>
-        <p className="text-center text-sm text-slate-400">
+        <p className="text-center text-sm text-muted">
           처음이신가요?{" "}
-          <Link to="/signup" className="text-sky-400 underline">
+          <Link to="/signup" className="font-semibold text-brass underline">
             가입하기
           </Link>
         </p>
       </Form>
-    </main>
+    </AuthShell>
   );
 }

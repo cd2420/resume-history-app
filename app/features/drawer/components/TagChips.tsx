@@ -9,7 +9,7 @@ export function TagChips({ tags, className = "" }: { tags: readonly string[]; cl
         <li key={tag}>
           <Link
             to={`/drawer?tag=${encodeURIComponent(tag)}`}
-            className="rounded bg-slate-700 px-1.5 py-0.5 text-xs text-sky-200 hover:bg-slate-600"
+            className="rounded-sm border border-line px-1.5 py-0.5 text-xs text-muted transition hover:border-brass hover:text-brass"
           >
             #{tag}
           </Link>
@@ -29,7 +29,7 @@ export function Highlight({ text, query }: { text: string; query: string | null 
   for (let at = lower.indexOf(needle); at !== -1; at = lower.indexOf(needle, from)) {
     if (at > from) parts.push(text.slice(from, at));
     parts.push(
-      <mark key={at} className="rounded bg-amber-300 px-0.5 text-slate-900">
+      <mark key={at} className="rounded-xs bg-brass-soft px-0.5 text-ink">
         {text.slice(at, at + needle.length)}
       </mark>,
     );

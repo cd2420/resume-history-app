@@ -155,10 +155,11 @@ export async function setNotifyHour(supabase: SupabaseClient, userId: string, ho
   checkWrite("setNotifyHour", await supabase.from("profiles").update({ notify_hour: hour }).eq("user_id", userId));
 }
 
-export async function createProject(supabase: SupabaseClient, userId: string, title: string): Promise<void> {
+/** shelfId files the new book on that shelf; null leaves it on the "newly shelved" shelf. */
+export async function createProject(supabase: SupabaseClient, userId: string, title: string, shelfId: string | null = null): Promise<void> {
   const { data: project, error } = await supabase
     .from("projects")
-    .insert({ user_id: userId, title, career_id: null })
+    .insert({ user_id: userId, title, career_id: null, shelf_id: shelfId })
     .select("id")
     .single<{ id: string }>();
   if (error || !project) throw new DrawerWebError("createProject", error?.code);
@@ -184,7 +185,7 @@ export async function setCurrentProject(supabase: SupabaseClient, userId: string
   );
 }
 
-// Written on the web: saved as typed (no AI), untagged until "태그 채우기". The composite FK
+// Written on the web: saved as typed (no AI), untagged until the user adds tags on the book page. The composite FK
 // (project_id, user_id) refuses another user's book.
 export async function createLog(supabase: SupabaseClient, userId: string, projectId: string, logDate: string, content: string) {
   checkWrite(
@@ -296,7 +297,7 @@ export interface DrawerWebStore extends BookshelfStore {
   issueLinkToken(): Promise<string>;
   unlinkTelegram(): Promise<void>;
   setNotifyHour(hour: number | null): Promise<void>;
-  createProject(title: string): Promise<void>;
+  createProject(title: string, shelfId?: string | null): Promise<void>;
   renameProject(projectId: string, title: string): Promise<void>;
   setCurrentProject(projectId: string): Promise<void>;
   createLog(projectId: string, logDate: string, content: string): Promise<void>;
@@ -320,7 +321,7 @@ export function createSupabaseWebStore(supabase: SupabaseClient, userId: string)
     issueLinkToken: () => issueLinkToken(supabase, userId),
     unlinkTelegram: () => unlinkTelegram(supabase, userId),
     setNotifyHour: (hour) => setNotifyHour(supabase, userId, hour),
-    createProject: (title) => createProject(supabase, userId, title),
+    createProject: (title, shelfId) => createProject(supabase, userId, title, shelfId ?? null),
     renameProject: (projectId, title) => renameProject(supabase, userId, projectId, title),
     setCurrentProject: (projectId) => setCurrentProject(supabase, userId, projectId),
     createLog: (projectId, logDate, content) => createLog(supabase, userId, projectId, logDate, content),

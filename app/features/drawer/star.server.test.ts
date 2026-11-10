@@ -4,7 +4,7 @@ import { DEMO_USER_ID, DemoStore } from "~/features/demo/demo-store.server";
 import type { DrawerWebStore } from "./drawer-web.server";
 import { createFakeDrawerLlm, FAKE_STAR } from "./fake-llm";
 import type { DrawerLlmClient } from "./generalize.server";
-import { MAX_STAR_GENERATIONS } from "./star";
+import { FREE_STAR_GENERATIONS } from "./star";
 import { generateStar, saveStar, StarError } from "./star.server";
 
 const OTHER = "00000000-0000-4000-8000-0000000000ff";
@@ -63,13 +63,13 @@ describe("generateStar", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  test(`stops after ${MAX_STAR_GENERATIONS} generations of one book`, async () => {
+  test(`stops after ${FREE_STAR_GENERATIONS} generations of one book`, async () => {
     const { id } = await bookWithLogs();
-    for (let i = 0; i < MAX_STAR_GENERATIONS; i++) await generateStar(store, llm, id);
+    for (let i = 0; i < FREE_STAR_GENERATIONS; i++) await generateStar(store, llm, id);
 
     await expect(generateStar(store, llm, id)).rejects.toMatchObject({ reason: "limit" });
-    expect(create).toHaveBeenCalledTimes(MAX_STAR_GENERATIONS);
-    expect((await store.getStar(id))!.generationCount).toBe(MAX_STAR_GENERATIONS);
+    expect(create).toHaveBeenCalledTimes(FREE_STAR_GENERATIONS);
+    expect((await store.getStar(id))!.generationCount).toBe(FREE_STAR_GENERATIONS);
   });
 
   test("ending the current book clears it, so the bot stops filing answers into it", async () => {

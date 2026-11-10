@@ -20,9 +20,10 @@ export const links: Route.LinksFunction = () => [
     href: "https://fonts.gstatic.com",
     crossOrigin: "anonymous",
   },
+  { rel: "preconnect", href: "https://cdn.jsdelivr.net", crossOrigin: "anonymous" },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css",
   },
 ];
 
@@ -52,7 +53,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <>
       {loaderData.isDemo && (
-        <div role="note" data-testid="demo-banner" className="bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-slate-950">
+        <div role="note" data-testid="demo-banner" className="bg-brass-soft px-4 py-1.5 text-center text-xs font-medium text-ink">
           데모 모드 · DB·OpenAI·텔레그램 대신 가짜 데이터를 씁니다. 서버가 다시 시작되면 초기화돼요.{" "}
           <Link to="/drawer/demo-bot" className="underline">
             봇 시뮬레이터

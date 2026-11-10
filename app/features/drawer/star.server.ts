@@ -11,7 +11,7 @@ import type { BookLog } from "./bookshelf";
 import type { DrawerWebStore } from "./drawer-web.server";
 import { type DrawerLlmClient, GeneralizeError, requestJson } from "./generalize.server";
 import { STAR_PROMPT } from "./prompts";
-import { MAX_STAR_GENERATIONS, MAX_STAR_TEXT, STAR_FIELDS, type StarDraft, type StarFields, type StarPart, isEdited } from "./star";
+import { FREE_STAR_GENERATIONS, MAX_STAR_TEXT, STAR_FIELDS, type StarDraft, type StarFields, type StarPart, isEdited } from "./star";
 
 // Reasoning tokens count toward this cap; a STAR is longer than a daily log.
 const STAR_MAX_TOKENS = 8000;
@@ -58,7 +58,7 @@ export async function generateStar(store: DrawerWebStore, llm: DrawerLlmClient, 
   if (!detail) throw new StarError("not_found");
   if (detail.logs.length === 0) throw new StarError("no_logs");
   const count = (existing?.generationCount ?? 0) + 1;
-  if (count > MAX_STAR_GENERATIONS) throw new StarError("limit");
+  if (count > FREE_STAR_GENERATIONS) throw new StarError("limit");
 
   const logs = pickLogs(detail.logs);
   const idByRef = new Map(logs.map((log, index) => [`L${index + 1}`, log.id]));

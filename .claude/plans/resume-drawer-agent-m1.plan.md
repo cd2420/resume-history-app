@@ -85,7 +85,7 @@
 | LLM 주입 | `app/lib/llm.server.ts:12`, `app/features/interview/interview.server.ts` | 함수가 클라이언트를 첫 인자로 받음. fake로 교체 |
 | 세션·인증 | `app/lib/supabase.server.ts:43` | `requireUser()`, Set-Cookie 헤더 전달 |
 | 폼·검증 | `app/routes/login.tsx:6` | zod `safeParse`, 실패 시 `data({ error }, { status: 400 })`, 입력값은 로그에 안 남김 |
-| 트랜잭션 저장 | `supabase/migrations/20261019120000_save_project_draft.sql` | 여러 테이블 쓰기는 `security invoker` RPC 1개로 |
+| 트랜잭션 저장 | `supabase/migrations/20261019130140_save_project_draft.sql` | 여러 테이블 쓰기는 `security invoker` RPC 1개로 |
 | 테스트 | `app/features/interview/interview.server.test.ts` | 대상 옆 `*.test.ts`, fake 클라이언트 |
 | 라우트 | `app/routes.ts:3` | 설정 기반. resource route는 `default` 컴포넌트 없이 `action`/`loader`만 |
 
@@ -127,7 +127,7 @@
 
 ### Task 1: 스키마·RLS·cron 마이그레이션
 - **Action**: 두 마이그레이션 작성·적용. `pg_cron` 잡은 운영 URL만 호출
-- **Mirror**: `20261013140000_career_schema.sql`의 RLS·복합 FK 패턴
+- **Mirror**: `20261013144745_career_schema.sql`의 RLS·복합 FK 패턴
 - **Validate**: Supabase advisors 보안 경고 0건. 계정 A로 계정 B 로그 조회 시 0건. `cron.job`에 잡 등록 확인
 
 ### Task 2: 순수 로직 (TDD)

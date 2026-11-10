@@ -1,0 +1,507 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T00:00:00Z",
+  "title": "Design System: 이력서랍",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "무표백 판지 바탕",
+        "canonical": "#e6e3dc",
+        "dark": "#161410",
+        "tonalRamp": [
+          "#161410",
+          "#2b2822",
+          "#45413a",
+          "#625d54",
+          "#878175",
+          "#aea89c",
+          "#d0cbc1",
+          "#e6e3dc"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "올린 면",
+        "canonical": "#f2f0eb",
+        "dark": "#201d18"
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "꺼진 면",
+        "canonical": "#dad6cd",
+        "dark": "#100e0b"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "선",
+        "canonical": "#c3bcaf",
+        "dark": "#3a342b"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "먹",
+        "canonical": "#1d1a15",
+        "dark": "#ece6da"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "흐린 먹",
+        "canonical": "#5b5449",
+        "dark": "#a99f8f"
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "더 흐린 먹",
+        "canonical": "#6f675a",
+        "dark": "#8e8373"
+      },
+      "brass": {
+        "role": "primary",
+        "displayName": "놋쇠",
+        "canonical": "#7d5f1e",
+        "dark": "#cfa75c",
+        "tonalRamp": [
+          "#2a1f08",
+          "#45340f",
+          "#624a17",
+          "#7d5f1e",
+          "#a07c34",
+          "#cfa75c",
+          "#e2c993",
+          "#f3e8cc"
+        ]
+      },
+      "brass-ink": {
+        "role": "primary",
+        "displayName": "놋쇠 위 글자",
+        "canonical": "#fbf7ee",
+        "dark": "#1c160c"
+      },
+      "brass-soft": {
+        "role": "primary",
+        "displayName": "옅은 놋쇠",
+        "canonical": "#eadfc2",
+        "dark": "#3a301c"
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "위험",
+        "canonical": "#9c3424",
+        "dark": "#e58a78"
+      },
+      "danger-soft": {
+        "role": "status",
+        "displayName": "옅은 위험",
+        "canonical": "#f1d9d3",
+        "dark": "#3d1e18"
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "완료",
+        "canonical": "#3a6638",
+        "dark": "#93c48d"
+      },
+      "ok-soft": {
+        "role": "status",
+        "displayName": "옅은 완료",
+        "canonical": "#d9e6d5",
+        "dark": "#1d2f1c"
+      },
+      "wood-top": {
+        "role": "secondary",
+        "displayName": "선반 윗면",
+        "canonical": "#a5845f",
+        "dark": "#6e5640"
+      },
+      "wood": {
+        "role": "secondary",
+        "displayName": "호두나무",
+        "canonical": "#8a6a4c",
+        "dark": "#5a4634",
+        "tonalRamp": [
+          "#2a1f15",
+          "#3b2d22",
+          "#5a4634",
+          "#8a6a4c",
+          "#a5845f",
+          "#bfa68e",
+          "#d8c7b5",
+          "#efe5da"
+        ]
+      },
+      "wood-dark": {
+        "role": "secondary",
+        "displayName": "선반 앞면",
+        "canonical": "#5e4632",
+        "dark": "#3b2d22"
+      },
+      "contact-shadow": {
+        "role": "secondary",
+        "displayName": "접촉 그림자",
+        "canonical": "rgba(40, 28, 16, 0.45)",
+        "dark": "rgba(0, 0, 0, 0.7)"
+      },
+      "label": {
+        "role": "tertiary",
+        "displayName": "크림 라벨",
+        "canonical": "#efe7d4",
+        "note": "두 테마 공통"
+      },
+      "label-ink": {
+        "role": "tertiary",
+        "displayName": "라벨 먹",
+        "canonical": "#241f1a",
+        "note": "두 테마 공통"
+      },
+      "label-muted": {
+        "role": "tertiary",
+        "displayName": "라벨 흐린 먹",
+        "canonical": "#4f473e",
+        "note": "두 테마 공통"
+      },
+      "cloth-ink": {
+        "role": "tertiary",
+        "displayName": "천 위 글자",
+        "canonical": "#f6f1e6",
+        "note": "두 테마 공통"
+      },
+      "page-edge": {
+        "role": "tertiary",
+        "displayName": "책 배",
+        "canonical": "#efe7d4",
+        "note": "두 테마 공통"
+      },
+      "page-edge-line": {
+        "role": "tertiary",
+        "displayName": "책 배 줄",
+        "canonical": "#d6cbb2",
+        "note": "두 테마 공통"
+      },
+      "cloth-oxblood": {
+        "role": "tertiary",
+        "displayName": "옥스블러드 천",
+        "canonical": "#6b2b2b",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-bottle-green": {
+        "role": "tertiary",
+        "displayName": "병 초록 천",
+        "canonical": "#2f4b3a",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-navy": {
+        "role": "tertiary",
+        "displayName": "남색 천",
+        "canonical": "#23395b",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-ochre": {
+        "role": "tertiary",
+        "displayName": "황토 천",
+        "canonical": "#8a6a24",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-plum": {
+        "role": "tertiary",
+        "displayName": "자두 천",
+        "canonical": "#4e3350",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-teal": {
+        "role": "tertiary",
+        "displayName": "청록 천",
+        "canonical": "#24545a",
+        "note": "책 id 해시로 배정, 표지 전용"
+      },
+      "cloth-rust": {
+        "role": "tertiary",
+        "displayName": "녹 주황 천",
+        "canonical": "#8a4626",
+        "note": "책 id 해시로 배정, 표지 전용"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "페이지 제목(책 제목, 설정)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "워드마크, 월 제목, 빈 책장 안내 제목."
+      },
+      "title-sm": {
+        "displayName": "Title Small",
+        "purpose": "칸 이름, 검색 결과 책 이름, 설정 행 제목."
+      },
+      "cover-title": {
+        "displayName": "Cover Title",
+        "purpose": "표지 라벨의 책 제목, 최대 3줄."
+      },
+      "body-log": {
+        "displayName": "Body Log",
+        "purpose": "기록 본문, 최대 70ch, 줄바꿈 보존."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "컨트롤과 설명 문단."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "폼 라벨, 날짜, 개수, 표지 기간과 태그. tabular 숫자."
+      }
+    },
+    "shadows": [
+      {
+        "name": "book",
+        "value": "0 14px 24px -12px rgba(0,0,0,0.6)",
+        "purpose": "책장 위 3D 표지."
+      },
+      {
+        "name": "book-mini",
+        "value": "0 12px 22px -10px rgba(0,0,0,0.6)",
+        "purpose": "책 페이지 헤더의 미니 표지."
+      },
+      {
+        "name": "contact",
+        "value": "var(--contact-shadow) ellipse, blur 6px, 84% width",
+        "purpose": "책 바닥이 선반에 닿는 자리."
+      },
+      {
+        "name": "shelf-front",
+        "value": "0 12px 20px -10px rgba(0,0,0,0.6)",
+        "purpose": "선반 앞면 아래 그림자."
+      },
+      {
+        "name": "floating",
+        "value": "0 18px 40px -16px rgba(0,0,0,0.55)",
+        "purpose": "필터 팝오버와 칸 메뉴."
+      },
+      {
+        "name": "toast",
+        "value": "0 16px 36px -14px rgba(0,0,0,0.6)",
+        "purpose": "하단 고정 토스트."
+      },
+      {
+        "name": "nav-active",
+        "value": "inset 0 -2px 0 var(--brass)",
+        "purpose": "활성 내비의 놋쇠 밑줄."
+      }
+    ],
+    "motion": [
+      {
+        "name": "book-pull",
+        "value": "spring(stiffness 260, damping 22); rotateY 22deg -> 0, y -10px, scale 1.03; perspective 700px, origin bottom",
+        "purpose": "책 hover/포커스 때 꺼내기. prefers-reduced-motion을 따른다."
+      },
+      {
+        "name": "book-press",
+        "value": "scale 0.97",
+        "purpose": "책 누름."
+      },
+      {
+        "name": "book-open",
+        "value": "view-transition-name: book-{id}",
+        "purpose": "표지가 책 페이지 헤더로 이어지는 전환."
+      },
+      {
+        "name": "toast-in",
+        "value": "200ms ease-out, from opacity 0 translateY(8px)",
+        "purpose": "토스트 등장. motion-safe에서만."
+      },
+      {
+        "name": "control",
+        "value": "Tailwind transition 기본(150ms)",
+        "purpose": "버튼과 링크의 색, 배경 변화."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "min-440",
+        "value": "440px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      }
+    ],
+    "tracking": [
+      {
+        "name": "tracking-title",
+        "value": "-0.015em",
+        "purpose": "모든 제목의 자간."
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "size": 16,
+      "strokeWidth": 1.5,
+      "inlineSize": 14
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "화면의 주 실행 하나(찾기, 책 만들기, 연결하기, 저장).",
+      "html": "<button class=\"ds-btn-primary\">찾기</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; border-radius: 6px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; padding: 8px 14px; border: 0; background: var(--brass, #7d5f1e); color: var(--brass-ink, #fbf7ee); cursor: pointer; transition: all 150ms; } .ds-btn-primary:hover { filter: brightness(1.1); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "보조 실행(칸 만들기, 이름 바꾸기, 필터).",
+      "html": "<button class=\"ds-btn-secondary\">칸 만들기</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; padding: 8px 14px; background: var(--raised, #f2f0eb); color: var(--ink, #1d1a15); border: 1px solid var(--line, #c3bcaf); cursor: pointer; transition: all 150ms; } .ds-btn-secondary:hover { border-color: var(--faint, #6f675a); } .ds-btn-secondary:active { transform: translateY(1px); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "돌아가기, 지우기, 로그아웃.",
+      "html": "<button class=\"ds-btn-ghost\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m12 19-7-7 7-7\"/><path d=\"M19 12H5\"/></svg>책장</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; padding: 8px 10px; background: transparent; color: var(--muted, #5b5449); border: 0; cursor: pointer; transition: all 150ms; } .ds-btn-ghost:hover { background: var(--sunken, #dad6cd); color: var(--ink, #1d1a15); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "삭제와 탈퇴에만.",
+      "html": "<button class=\"ds-btn-danger\">회원 탈퇴</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; padding: 8px 14px; background: transparent; color: var(--danger, #9c3424); border: 1px solid color-mix(in srgb, var(--danger, #9c3424) 40%, transparent); cursor: pointer; transition: all 150ms; } .ds-btn-danger:hover { background: var(--danger-soft, #f1d9d3); } .ds-btn-danger:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "한 줄 검색. 돋보기 아이콘, 포커스 때 놋쇠 테두리.",
+      "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input class=\"ds-input\" placeholder=\"공고 요건으로 찾기 (예: 캐시, 결제, 장애)\" /></label>",
+      "css": ".ds-search { position: relative; display: block; } .ds-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--faint, #6f675a); pointer-events: none; } .ds-input { width: 100%; border-radius: 6px; border: 1px solid var(--line, #c3bcaf); background: var(--sunken, #dad6cd); color: var(--ink, #1d1a15); font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; padding: 10px 12px 10px 36px; transition: border-color 150ms; } .ds-input::placeholder { color: var(--faint, #6f675a); } .ds-input:focus { outline: none; border-color: var(--brass, #7d5f1e); }"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "서랍장 마크, 워드마크, 활성 탭은 놋쇠 밑줄 하나.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-brand\"><svg width=\"26\" height=\"28\" viewBox=\"0 0 26 28\"><rect x=\"1\" y=\"1\" width=\"24\" height=\"26\" rx=\"2.5\" fill=\"var(--wood, #8a6a4c)\"/><rect x=\"3.5\" y=\"3\" width=\"19\" height=\"6.5\" rx=\"1\" fill=\"var(--wood-dark, #5e4632)\"/><rect x=\"10\" y=\"5.5\" width=\"6\" height=\"1.6\" rx=\"0.8\" fill=\"var(--brass, #7d5f1e)\"/><rect x=\"3.5\" y=\"11\" width=\"19\" height=\"6.5\" rx=\"1\" fill=\"var(--wood-dark, #5e4632)\"/><rect x=\"10\" y=\"13.5\" width=\"6\" height=\"1.6\" rx=\"0.8\" fill=\"var(--brass, #7d5f1e)\"/><rect x=\"3.5\" y=\"19\" width=\"19\" height=\"6.5\" rx=\"1\" fill=\"var(--wood-dark, #5e4632)\"/><rect x=\"10\" y=\"21.5\" width=\"6\" height=\"1.6\" rx=\"0.8\" fill=\"var(--brass, #7d5f1e)\"/></svg><span class=\"ds-wordmark\">이력서랍</span></a><nav><a class=\"ds-navlink is-active\">책장</a><a class=\"ds-navlink\">설정</a></nav></header>",
+      "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line, #c3bcaf); font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-brand { display: flex; align-items: center; gap: 10px; color: var(--ink, #1d1a15); text-decoration: none; } .ds-wordmark { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.015em; } .ds-nav nav { display: flex; gap: 4px; } .ds-navlink { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; font-size: 0.875rem; color: var(--muted, #5b5449); text-decoration: none; cursor: pointer; transition: color 150ms; } .ds-navlink:hover { color: var(--ink, #1d1a15); } .ds-navlink.is-active { color: var(--ink, #1d1a15); font-weight: 600; box-shadow: inset 0 -2px 0 var(--brass, #7d5f1e); } .ds-navlink:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Pills",
+      "kind": "chip",
+      "refersTo": "status-pill-current",
+      "description": "진행 중(놋쇠, Dot 아이콘), 완결·연결됨(ok).",
+      "html": "<span class=\"ds-pill ds-pill-current\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4\" stroke-linecap=\"round\"><circle cx=\"12.1\" cy=\"12.1\" r=\"1\"/></svg>진행 중</span> <span class=\"ds-pill ds-pill-done\">완결</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 2px; border-radius: 9999px; padding: 2px 10px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.75rem; font-weight: 600; } .ds-pill-current { background: var(--brass, #7d5f1e); color: var(--brass-ink, #fbf7ee); padding-left: 2px; } .ds-pill-done { background: var(--ok-soft, #d9e6d5); color: var(--ok, #3a6638); }"
+    },
+    {
+      "name": "Shelf Header with Menu",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "칸 이름과 권수를 baseline으로 맞추고 가는 구분선, 끝에 ⋯ 메뉴.",
+      "html": "<header class=\"ds-shelf-head\"><span class=\"ds-shelf-name\"><b>A사</b><small>2권</small></span><details class=\"ds-menu\"><summary aria-label=\"A사 칸 메뉴\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"19\" cy=\"12\" r=\"1\"/><circle cx=\"5\" cy=\"12\" r=\"1\"/></svg></summary><div class=\"ds-menu-list\"><button>칸 접기</button><button disabled>위로</button><button>아래로</button></div></details></header>",
+      "css": ".ds-shelf-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line, #c3bcaf); font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-shelf-name { display: flex; align-items: baseline; gap: 8px; } .ds-shelf-name b { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; color: var(--ink, #1d1a15); } .ds-shelf-name small { font-size: 0.875rem; color: var(--muted, #5b5449); font-variant-numeric: tabular-nums; } .ds-menu { position: relative; } .ds-menu summary { list-style: none; display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 6px; color: var(--muted, #5b5449); cursor: pointer; } .ds-menu summary::-webkit-details-marker { display: none; } .ds-menu summary:hover { background: var(--sunken, #dad6cd); color: var(--ink, #1d1a15); } .ds-menu-list { position: absolute; right: 0; top: 100%; margin-top: 4px; width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 8px; border: 1px solid var(--line, #c3bcaf); background: var(--raised, #f2f0eb); box-shadow: 0 18px 40px -16px rgba(0,0,0,0.55); z-index: 20; } .ds-menu-list button { min-height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink, #1d1a15); font: inherit; font-size: 0.875rem; text-align: left; cursor: pointer; } .ds-menu-list button:hover { background: var(--sunken, #dad6cd); } .ds-menu-list button:disabled { color: var(--faint, #6f675a); cursor: not-allowed; background: transparent; }"
+    },
+    {
+      "name": "Bookcloth Book on Two-Face Shelf",
+      "kind": "custom",
+      "refersTo": "book-cover",
+      "description": "22도 돌아선 천 장정 책, 크림 라벨(제목·기간·기록 수), 접촉 그림자, 앞면이 책 하단을 덮는 두 면 선반, 책 추가 슬롯.",
+      "html": "<div class=\"ds-shelf\"><div class=\"ds-books\"><a class=\"ds-book\" href=\"#\"><span class=\"ds-contact\"></span><div class=\"ds-book-inner\"><div class=\"ds-cover\"><div class=\"ds-cover-label\"><h3>결제 시스템 개편</h3><p><span>26.09 ~</span><b>기록 7개</b></p></div><span class=\"ds-cover-tag\">#Kafka</span></div></div></a><button class=\"ds-add-book\">책 추가</button></div><div class=\"ds-plank\"><div class=\"ds-plank-top\"></div><div class=\"ds-plank-front\"></div></div></div>",
+      "css": ".ds-shelf { font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 32px 20px; padding: 20px 12px 0; } .ds-book { position: relative; display: block; aspect-ratio: 5 / 7; perspective: 700px; border-radius: 4px; } .ds-book:focus-visible { outline: 2px solid var(--brass, #7d5f1e); outline-offset: 4px; } .ds-contact { position: absolute; left: 8%; right: 8%; bottom: -4px; height: 12px; border-radius: 50%; background: var(--contact-shadow, rgba(40,28,16,0.45)); filter: blur(6px); } .ds-book-inner { position: relative; height: 100%; transform-origin: bottom; transform: rotateY(22deg); transition: transform 400ms cubic-bezier(0.34, 1.4, 0.64, 1); } .ds-book:hover .ds-book-inner, .ds-book:focus-visible .ds-book-inner { transform: rotateY(0) translateY(-10px) scale(1.03); } @media (prefers-reduced-motion: reduce) { .ds-book-inner { transition: none; } } .ds-cover { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 14px 12px 14px 20px; border-radius: 2px 4px 4px 2px; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 3px), linear-gradient(105deg, rgba(255,255,255,0.10), transparent 38%, rgba(0,0,0,0.24)), #23395b; box-shadow: 0 14px 24px -12px rgba(0,0,0,0.6); } .ds-cover-label { display: flex; flex-direction: column; gap: 6px; border-radius: 2px; background: var(--label, #efe7d4); color: var(--label-ink, #241f1a); padding: 8px 10px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); } .ds-cover-label h3 { margin: 0; font-size: 0.875rem; font-weight: 700; line-height: 1.35; letter-spacing: -0.015em; word-break: keep-all; } .ds-cover-label p { margin: 0; display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--label-muted, #4f473e); font-variant-numeric: tabular-nums; } .ds-cover-label b { font-weight: 600; color: var(--label-ink, #241f1a); } .ds-cover-tag { width: fit-content; border-radius: 2px; background: rgba(0,0,0,0.4); padding: 2px 6px; font-size: 0.75rem; font-weight: 500; color: var(--cloth-ink, #f6f1e6); } .ds-add-book { aspect-ratio: 5 / 7; border-radius: 4px; border: 1px dashed var(--line, #c3bcaf); background: transparent; color: var(--muted, #5b5449); font: inherit; font-size: 0.875rem; cursor: pointer; transition: all 150ms; } .ds-add-book:hover { border-color: var(--brass, #7d5f1e); color: var(--brass, #7d5f1e); } .ds-plank { position: relative; z-index: 10; margin-top: -6px; } .ds-plank-top { height: 8px; background: linear-gradient(180deg, var(--wood-top, #a5845f), var(--wood, #8a6a4c)); clip-path: polygon(0.6% 0, 99.4% 0, 100% 100%, 0 100%); } .ds-plank-front { height: 12px; border-radius: 0 0 2px 2px; background: linear-gradient(180deg, var(--wood-dark, #5e4632), color-mix(in oklab, var(--wood-dark, #5e4632), black 25%)); box-shadow: 0 12px 20px -10px rgba(0,0,0,0.6); }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "화면 아래 고정 토스트. 완료는 raised에 ok 테두리, 오류는 danger-soft.",
+      "html": "<p class=\"ds-toast ds-toast-done\" role=\"status\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg>저장했어요.</p>",
+      "css": "@keyframes ds-toast-in { from { opacity: 0; transform: translateY(8px); } } .ds-toast { display: flex; width: fit-content; align-items: center; gap: 8px; margin: 0 auto; border-radius: 8px; border: 1px solid; padding: 10px 16px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 0.875rem; color: var(--ink, #1d1a15); box-shadow: 0 16px 36px -14px rgba(0,0,0,0.6); animation: ds-toast-in 200ms ease-out; } @media (prefers-reduced-motion: reduce) { .ds-toast { animation: none; } } .ds-toast-done { background: var(--raised, #f2f0eb); border-color: color-mix(in srgb, var(--ok, #3a6638) 40%, transparent); } .ds-toast-done svg { color: var(--ok, #3a6638); } .ds-toast-error { background: var(--danger-soft, #f1d9d3); border-color: color-mix(in srgb, var(--danger, #9c3424) 40%, transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "기록보존소의 서랍장",
+    "overview": "이력서랍의 웹은 대시보드가 아니라 서고다. 들어오면 책장이 먼저 보이고, 프로젝트는 천으로 장정한 책이 되어 호두나무 선반 위에 비스듬히 서 있다. 기록이 쌓일수록 책이 두꺼워진다. 물성은 책과 선반 두 곳에만 몰아 둔다. 칸 머리말, 검색, 설정, 기록 목록은 글자와 가는 구분선으로만 정리한 조용한 종이 면이다.\n\n테마는 기기 설정에 따라 바뀐다. 밝은 쪽은 무표백 보존 판지(따뜻한 회갈색 바탕), 어두운 쪽은 먹색 서고(거의 검은 갈색 바탕)다. 두 테마가 같은 역할 토큰을 쓰고, 강조색은 놋쇠 하나다. 놋쇠는 주 실행 버튼, 현재 상태, 활성 내비 밑줄, 포커스, 텍스트 선택, 입력 캐럿, hover 강조에만 쓴다. 책의 재료(크림 라벨, 종이 단면, 천 위 글자)는 두 테마에서 같은 종이와 실이다.\n\n글꼴은 Pretendard 하나다. 위계는 크기, 굵기(600/700), 살짝 좁힌 자간으로 만든다. 바쁜 사람이 1분 안에 찾고 나가는 도구라서 첫 화면은 얇은 상단 바, 한 줄 검색, 바로 이어지는 책장으로 채운다. 상자를 겹겹이 쌓은 카드 레이아웃은 쓰지 않는다. 목록은 구분선으로 나눈 행이다.",
+    "keyCharacteristics": [
+      "강조색은 놋쇠 하나. 성공(ok)과 위험(danger)은 상태를 알릴 때만 쓴다.",
+      "글꼴은 Pretendard 하나. 제목은 600/700, 자간 -0.015em.",
+      "날짜, 개수, 기간은 모두 tabular 숫자로 쓴다(등록번호처럼 자릿수를 맞춤).",
+      "물성(3D 책, 두 면짜리 나무 선반, 접촉 그림자)은 책장에만 두고 나머지는 평면이다.",
+      "목록과 칸 머리말은 카드가 아니라 가는 구분선 행이다.",
+      "lucide 선 아이콘, 16px, 선 굵기 1.5."
+    ],
+    "rules": [
+      {
+        "name": "The One Brass Rule",
+        "body": "강조색은 놋쇠 하나다. 새 강조색을 만들지 않는다. 강조가 필요하면 놋쇠를 쓰거나 강조를 뺀다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cloth Stays On Books Rule",
+        "body": "천 일곱 색은 책 표지에만 쓴다. 버튼, 배지, 차트 색으로 가져다 쓰지 않는다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Rooms Rule",
+        "body": "모든 색은 역할 토큰으로 칠한다. 밝은 판지와 어두운 서고는 같은 토큰 이름 아래 값만 바뀐다. 테마와 무관한 책 재료도 `label`, `label-ink`, `label-muted`, `cloth-ink`, `page-edge` 토큰을 쓴다. 토큰이 없는 hex는 천 일곱 색뿐이다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight Not Face Rule",
+        "body": "제목을 본문과 구분할 때는 굵기(600/700)와 `tracking-title`을 쓴다. 두 번째 글꼴을 들이지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Accession Number Rule",
+        "body": "날짜, 기간, 개수, 건수는 언제나 `tabular-nums`로 쓴다. 숫자가 행마다 같은 자리에 서야 목록이 장부처럼 읽힌다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Keep Words Rule",
+        "body": "한글 제목은 `break-keep`으로 어절 단위로 줄을 바꾼다. 긴 영문이나 URL이 섞일 수 있는 기록 본문은 `overflow-wrap: anywhere`를 쓴다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Divider Not Box Rule",
+        "body": "반복되는 목록(칸, 기록, 검색 결과, 설정 항목)은 카드로 감싸지 않고 구분선 행으로 쌓는다. 패널(`raised`와 `line` 테두리)은 접는 폼이나 빈 상태처럼 한 화면에 한두 개 놓이는 덩어리에만 쓴다.",
+        "section": "layout"
+      },
+      {
+        "name": "The Only Objects Cast Shadows Rule",
+        "body": "그림자는 책, 선반, 뜨는 면(팝오버, 메뉴, 토스트)에만 쓴다. 패널, 버튼, 입력란은 그림자 없이 명도와 1px 선으로 구분한다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Books Stand On Wood Rule",
+        "body": "선반은 윗면(8px)과 앞면(12px) 두 면이고, 앞면이 책 하단을 6px 덮는다(z-index를 책보다 높게). 책 바닥 아래에는 접촉 그림자를 둔다. 책이 선반 위에 떠 보이면 안 된다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 모든 색을 역할 토큰(`ground`, `raised`, `sunken`, `line`, `ink`, `muted`, `faint`, `brass`, `label` …)으로 칠해 밝은 판지와 어두운 서고를 함께 지켜라.",
+      "Do 아이콘은 lucide 선 아이콘을 16px, 선 굵기 1.5로 써라(`ICON` 상수). 글자 옆 보조 아이콘만 14px로 줄인다.",
+      "Do 컨트롤은 `ui.ts`의 어휘(input, primary, secondary, ghost, danger, dangerGhost, icon, panel, label, disclosure)에서 골라 써라. 새 버튼 모양을 만들지 않는다.",
+      "Do 제목은 Pretendard 600/700에 `tracking-title`, 날짜와 개수는 `tabular-nums`로 써라.",
+      "Do 칸이나 행에 붙는 조작이 여럿이면 ⋯ 메뉴 하나로 모아라.",
+      "Do 목록은 구분선 행으로, 날짜 열은 고정 폭 그리드로 맞춰라.",
+      "Do 움직임은 책과 토스트에만 주고 `prefers-reduced-motion`을 따르라.",
+      "Do 책 표지 색은 `spineColor(id)`로 정해 책장과 책 페이지에서 같은 천을 유지하라."
+    ],
+    "donts": [
+      "Don't 놋쇠 말고 다른 강조색을 들이지 마라. 천 일곱 색을 표지 밖 UI에 쓰지도 마라.",
+      "Don't 두 번째 글꼴(세리프 포함)을 들이지 마라. 위계는 크기와 굵기로 만든다.",
+      "Don't 칸 이름을 라벨 판, 리벳, 테두리 상자에 담지 마라. 이름, 권수, 가는 구분선이면 충분하다.",
+      "Don't 기록, 검색 결과, 설정 항목을 그림자 진 카드로 하나씩 감싸지 마라. 상자를 쌓은 관리자 대시보드가 이 시스템이 버린 모습이다.",
+      "Don't 패널, 버튼, 입력란에 그림자를 넣지 마라. 그림자는 책, 선반, 뜨는 면에만 쓴다.",
+      "Don't 활성 내비에 배경 알약을 깔지 마라. 놋쇠 밑줄 하나로 표시한다.",
+      "Don't 결과 알림을 페이지 흐름 안에 끼워 레이아웃을 밀지 마라. 하단 토스트로 띄운다.",
+      "Don't 상태를 글리프 문자(●, ✓ 같은 기호)로 표시하지 마라. lucide 아이콘이나 배지 색을 쓴다."
+    ]
+  }
+}

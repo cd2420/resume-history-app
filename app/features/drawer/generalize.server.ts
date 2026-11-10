@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { LLM_MODEL } from "~/lib/llm.server";
 import { MAX_LOG_LENGTH } from "./limits";
-import { GENERALIZE_PROMPT, TAG_PROMPT } from "./prompts";
+import { GENERALIZE_PROMPT } from "./prompts";
 import { normalizeTags } from "./tags";
 
 export { MAX_LOG_LENGTH };
@@ -27,8 +27,6 @@ export const generalizationSchema = z.object({
   changes: z.array(z.enum(CHANGE_CATEGORIES)),
   tags: z.array(z.string()),
 });
-
-const tagSuggestionSchema = z.object({ tags: z.array(z.string()) });
 
 export interface Generalization {
   generalized: string;
@@ -134,27 +132,4 @@ export async function generalize(
     changes: [...new Set(parsed.data.changes)],
     tags: normalizeTags(parsed.data.tags, existingTags),
   };
-}
-
-/** Tags for a log saved before tagging existed. `content` is already generalized. */
-export async function suggestTags(
-  llm: DrawerLlmClient,
-  content: string,
-  existingTags: readonly string[] = [],
-): Promise<string[]> {
-  const input = content.trim();
-  if (!input) throw new GeneralizeError("empty");
-
-  const json = await requestJson(llm, {
-    model: LLM_MODEL,
-    store: false,
-    reasoning: { effort: "low" },
-    max_output_tokens: GENERALIZE_MAX_TOKENS,
-    instructions: withExistingTags(TAG_PROMPT, existingTags),
-    input: [{ role: "user", content: input }],
-    text: { format: zodTextFormat(tagSuggestionSchema, "log_tags") },
-  });
-  const parsed = tagSuggestionSchema.safeParse(json);
-  if (!parsed.success) throw new GeneralizeError("invalid", { cause: parsed.error });
-  return normalizeTags(parsed.data.tags, existingTags);
 }

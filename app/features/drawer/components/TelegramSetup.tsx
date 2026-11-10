@@ -1,14 +1,15 @@
+import { Check, ChevronDown, Send } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 
 import { type ConsentTerm, versionField } from "~/features/drawer/consent";
 import type { action as settingsAction } from "~/routes/drawer.settings";
 
+import { ICON, ui } from "./ui";
+
 const SETTINGS = "/drawer/settings";
 const SUGGESTED_HOUR = 21;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-
-const button = "shrink-0 whitespace-nowrap rounded bg-sky-600 px-3 py-2 text-sm font-semibold disabled:opacity-50";
 
 /** Reloads page data when the user comes back from Telegram, so "연결됨" shows without a manual refresh. */
 function useRevalidateOnReturn() {
@@ -39,11 +40,12 @@ export function TelegramConnect({ isDemo, botUsername, term }: ConnectProps) {
           target={isDemo ? undefined : "_blank"}
           rel="noopener noreferrer"
           data-testid="deep-link"
-          className={`${button} text-center`}
+          className={`${ui.primary} w-fit`}
         >
+          <Send {...ICON} aria-hidden />
           {isDemo ? "봇 시뮬레이터에서 연결하기" : `텔레그램에서 @${botUsername} 열기`}
         </a>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs leading-relaxed text-muted">
           봇 화면에서 <b>시작</b>을 누르면 연결돼요. 이 화면으로 돌아오면 자동으로 반영돼요. 링크는 9분 안에 한 번만 쓸 수 있어요.
         </p>
       </div>
@@ -52,24 +54,25 @@ export function TelegramConnect({ isDemo, botUsername, term }: ConnectProps) {
 
   return (
     <fetcher.Form method="post" action={SETTINGS} className="flex flex-col gap-2">
-      <div className="flex flex-col gap-1 rounded bg-slate-900 p-3 text-xs leading-relaxed">
+      <div className="flex flex-col gap-1 rounded-md border border-line bg-sunken p-3 text-xs leading-relaxed">
         <p className="font-semibold">{term.title}</p>
-        <ul className="list-disc pl-4 text-slate-300">
+        <ul className="list-disc pl-4 text-muted">
           {term.items.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
         <input type="hidden" name={versionField(term.kind)} value={term.version} />
         <label className="mt-1 flex items-center gap-2 text-sm">
-          <input type="checkbox" name={term.kind} required className="h-4 w-4" />
+          <input type="checkbox" name={term.kind} required className="size-4 accent-[var(--brass)]" />
           <span>동의합니다</span>
         </label>
       </div>
-      <button name="intent" value="connect" disabled={isIssuing} className={button}>
+      <button name="intent" value="connect" disabled={isIssuing} className={`${ui.primary} w-fit`}>
+        <Send {...ICON} aria-hidden />
         {isIssuing ? "링크 만드는 중…" : "텔레그램 연결하기"}
       </button>
       {fetcher.data?.error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p role="alert" className="text-xs text-danger">
           {fetcher.data.error}
         </p>
       )}
@@ -87,7 +90,7 @@ function NotifyHourStep({ notifyHour }: { notifyHour: number | null }) {
         name="hour"
         aria-label="알림 시간"
         defaultValue={String(notifyHour ?? SUGGESTED_HOUR)}
-        className="min-w-0 rounded bg-slate-900 px-3 py-2 text-sm"
+        className={ui.input}
       >
         {HOURS.map((hour) => (
           <option key={hour} value={hour}>
@@ -95,7 +98,7 @@ function NotifyHourStep({ notifyHour }: { notifyHour: number | null }) {
           </option>
         ))}
       </select>
-      <button type="submit" disabled={isSaving} className={button}>
+      <button type="submit" disabled={isSaving} className={ui.primary}>
         {isSaving ? "저장 중…" : "이 시간에 받기"}
       </button>
     </fetcher.Form>
@@ -104,31 +107,45 @@ function NotifyHourStep({ notifyHour }: { notifyHour: number | null }) {
 
 function Step({ n, isDone, title, children }: { n: number; isDone: boolean; title: string; children: ReactNode }) {
   return (
-    <li className="flex flex-col gap-2">
-      <p className={`text-sm font-semibold ${isDone ? "text-slate-400 line-through" : ""}`}>
-        {isDone ? "✅" : `${n}.`} {title}
-      </p>
-      {!isDone && children}
+    <li className="flex gap-3">
+      <span
+        aria-hidden
+        className={`mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
+          isDone ? "bg-ok-soft text-ok" : "border border-brass text-brass"
+        }`}
+      >
+        {isDone ? <Check size={14} strokeWidth={2.25} /> : n}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <p className={`text-sm font-semibold ${isDone ? "text-faint" : "text-ink"}`}>
+          {title}
+          {isDone && <span className="ml-1.5 font-normal">완료</span>}
+        </p>
+        {!isDone && children}
+      </div>
     </li>
   );
 }
 
 type SetupProps = ConnectProps & { isLinked: boolean; notifyHour: number | null };
 
-/** First-run card on the bookshelf: connect Telegram, then pick the daily prompt hour. Hidden once both are done. */
+/** First-run checklist on the bookshelf: connect Telegram, then pick the daily prompt hour. Hidden once both are done. */
 export function TelegramSetup({ isLinked, notifyHour, isDemo, botUsername, term }: SetupProps) {
   if (isLinked && notifyHour !== null) return null;
+  const remaining = Number(!isLinked) + Number(notifyHour === null);
   return (
-    <section
-      aria-label="시작하기"
-      data-testid="telegram-setup"
-      className="flex flex-col gap-3 rounded border border-sky-700 bg-slate-800 p-4"
-    >
-      <div>
-        <h2 className="text-lg font-semibold">시작하기</h2>
-        <p className="text-sm text-slate-300">정한 시간에 텔레그램으로 오늘 한 일을 먼저 물어볼게요. 답하면 이 책장에 기록이 쌓여요.</p>
-      </div>
-      <ol className="flex flex-col gap-4">
+    <details aria-label="시작하기" data-testid="telegram-setup" className={`group ${ui.panel} px-4 py-3`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 truncate text-sm font-semibold">
+          시작하기{" "}
+          <span className="font-normal text-muted tabular-nums">
+            · {remaining}단계 남음 · {isLinked ? "질문 받을 시간 고르기" : "텔레그램 연결"}
+          </span>
+        </span>
+        <ChevronDown {...ICON} aria-hidden className="shrink-0 text-muted transition group-open:rotate-180" />
+      </summary>
+      <p className="mt-3 text-xs text-muted">정한 시간에 텔레그램으로 오늘 한 일을 먼저 물어볼게요. 답하면 이 책장에 기록이 쌓여요.</p>
+      <ol className="mt-4 flex flex-col gap-4 border-t border-line pt-4">
         <Step n={1} isDone={isLinked} title="텔레그램 연결">
           <TelegramConnect isDemo={isDemo} botUsername={botUsername} term={term} />
         </Step>
@@ -136,10 +153,10 @@ export function TelegramSetup({ isLinked, notifyHour, isDemo, botUsername, term 
           {isLinked ? (
             <NotifyHourStep notifyHour={notifyHour} />
           ) : (
-            <p className="text-xs text-slate-400">텔레그램을 연결하면 고를 수 있어요.</p>
+            <p className="text-xs text-muted">텔레그램을 연결하면 고를 수 있어요.</p>
           )}
         </Step>
       </ol>
-    </section>
+    </details>
   );
 }

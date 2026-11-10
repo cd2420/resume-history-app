@@ -1,4 +1,7 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
+
+import { AuthShell } from "~/features/drawer/components/AuthShell";
+import { ui } from "~/features/drawer/components/ui";
 import { z } from "zod";
 
 import { demoLoginHeaders, hasDemoSession } from "~/features/demo/demo-auth.server";
@@ -70,28 +73,28 @@ export default function Signup({ actionData }: Route.ComponentProps) {
 
   if (actionData?.sent) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-50">
-        <div className="flex w-full max-w-sm flex-col gap-4">
-          <h1 className="text-2xl font-bold">메일을 확인해 주세요</h1>
-          <p className="text-slate-300">인증 메일의 링크를 누른 뒤 로그인하면 텔레그램을 연결할 수 있어요.</p>
-          <Link to="/login" className="rounded bg-sky-600 py-2 text-center font-semibold">
+      <AuthShell>
+        <div className="flex flex-col gap-4">
+          <h1 className="text-lg font-semibold tracking-title">메일을 확인해 주세요</h1>
+          <p className="text-sm leading-relaxed text-muted">인증 메일의 링크를 누른 뒤 로그인하면 텔레그램을 연결할 수 있어요.</p>
+          <Link to="/login" className={`${ui.primary} py-2.5`}>
             로그인으로
           </Link>
         </div>
-      </main>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-50">
-      <Form method="post" className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-2xl font-bold">이력서랍 가입</h1>
+    <AuthShell>
+      <Form method="post" className="flex flex-col gap-4">
+        <h1 className="text-lg font-semibold tracking-title">가입하기</h1>
         <label className="flex flex-col gap-1">
-          <span className="text-sm">이메일</span>
-          <input name="email" type="email" autoComplete="email" required className="rounded bg-slate-800 px-3 py-2" />
+          <span className={ui.label}>이메일</span>
+          <input name="email" type="email" autoComplete="email" required className={`${ui.input} py-2.5`} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm">비밀번호 (8자 이상)</span>
+          <span className={ui.label}>비밀번호 (8자 이상)</span>
           <input
             name="password"
             type="password"
@@ -99,34 +102,34 @@ export default function Signup({ actionData }: Route.ComponentProps) {
             minLength={8}
             maxLength={72}
             required
-            className="rounded bg-slate-800 px-3 py-2"
+            className={`${ui.input} py-2.5`}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm">비밀번호 확인</span>
+          <span className={ui.label}>비밀번호 확인</span>
           <input
             name="passwordConfirm"
             type="password"
             autoComplete="new-password"
             required
-            className="rounded bg-slate-800 px-3 py-2"
+            className={`${ui.input} py-2.5`}
           />
         </label>
         {actionData?.error && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {actionData.error}
           </p>
         )}
-        <button type="submit" disabled={isSubmitting} className="rounded bg-sky-600 py-2 font-semibold disabled:opacity-50">
+        <button type="submit" disabled={isSubmitting} className={`${ui.primary} py-2.5`}>
           {isSubmitting ? "가입 중…" : "가입하기"}
         </button>
-        <p className="text-center text-sm text-slate-400">
+        <p className="text-center text-sm text-muted">
           이미 계정이 있나요?{" "}
-          <Link to="/login" className="text-sky-400 underline">
+          <Link to="/login" className="font-semibold text-brass underline">
             로그인
           </Link>
         </p>
       </Form>
-    </main>
+    </AuthShell>
   );
 }

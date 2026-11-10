@@ -1,8 +1,6 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 
-import { fillMissingTags } from "~/features/drawer/bookshelf.server";
 import type { DrawerWebStore } from "~/features/drawer/drawer-web.server";
-import { createFakeDrawerLlm, FAKE_SUGGESTED_TAGS, fakeResponse } from "~/features/drawer/fake-llm";
 import { DEMO_USER_ID, DemoStore } from "./demo-store.server";
 
 const OTHER = "00000000-0000-4000-8000-0000000000ff";
@@ -23,7 +21,6 @@ describe("bookshelf", () => {
     expect(view.shelves.map((s) => s.name)).toEqual(["A사", "개인 프로젝트"]);
     expect(view.books[0]).toMatchObject({ title: "결제 시스템 개편", isCurrent: true });
     expect(view.books.filter((b) => b.shelfId === null).map((b) => b.title)).toEqual(["사내 해커톤"]);
-    expect(view.untaggedCount).toBe(2);
     expect(view.tags).toContain("Kafka");
   });
 
@@ -63,6 +60,26 @@ describe("bookshelf", () => {
     expect((await store.getBook(book.id))!.book.shelfId).not.toBe(foreignShelf.id);
     expect(await foreign.getBook(book.id)).toBeNull();
   });
+
+  test("a book created from a shelf lands on that shelf", async () => {
+    const shelf = (await store.getBookshelf()).shelves[0];
+
+    await store.createProject("새 프로젝트", shelf.id);
+
+    const book = (await store.getBookshelf()).books.find((b) => b.title === "새 프로젝트")!;
+    expect(book.shelfId).toBe(shelf.id);
+  });
+
+  test("a book created on another user's shelf lands on the newly shelved shelf", async () => {
+    const foreign = demo.webStoreFor(OTHER);
+    await foreign.createShelf("남의 칸");
+    const foreignShelf = (await foreign.getBookshelf()).shelves[0];
+
+    await store.createProject("새 프로젝트", foreignShelf.id);
+
+    const book = (await store.getBookshelf()).books.find((b) => b.title === "새 프로젝트")!;
+    expect(book.shelfId).toBeNull();
+  });
 });
 
 describe("search", () => {
@@ -87,26 +104,6 @@ describe("search", () => {
   test("never returns another user's logs", async () => {
     demo.logs.push({ id: "x", userId: OTHER, projectId: "p", logDate: "2026-11-01", content: "Kafka 비밀", edited: false, tags: [] });
     expect((await store.search({ ...noFilters, q: "비밀" }))).toEqual([]);
-  });
-});
-
-describe("fillMissingTags", () => {
-  test("tags untagged logs with the model's suggestion", async () => {
-    const result = await fillMissingTags(store, createFakeDrawerLlm());
-
-    expect(result).toEqual({ tagged: 2, failed: 0 });
-    expect((await store.getBookshelf()).untaggedCount).toBe(0);
-    const hit = (await store.search({ ...noFilters, q: "코드 리뷰" }))[0];
-    expect(hit.tags).toEqual(FAKE_SUGGESTED_TAGS);
-  });
-
-  test("counts model failures and leaves those logs untagged", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const llm = { responses: { create: vi.fn().mockResolvedValue(fakeResponse("not json")) } };
-
-    expect(await fillMissingTags(store, llm)).toEqual({ tagged: 0, failed: 2 });
-    expect((await store.getBookshelf()).untaggedCount).toBe(2);
-    error.mockRestore();
   });
 });
 

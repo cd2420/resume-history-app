@@ -10,8 +10,11 @@ export const STAR_LABELS: Record<StarField, string> = {
   result: "R · 결과",
 };
 
-/** Regenerations per book, including the first one. Matches the DB check. */
-export const MAX_STAR_GENERATIONS = 5;
+/**
+ * Free STAR generations per book, including the first one. Regenerating costs an AI call each
+ * time, so it is held back until it becomes a paid feature. The DB check still allows up to 5.
+ */
+export const FREE_STAR_GENERATIONS = 1;
 export const MAX_STAR_TEXT = 2000;
 
 export interface StarPart {

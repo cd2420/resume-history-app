@@ -2,8 +2,6 @@
 
 export const NEW_SHELF_LABEL = "새로 꽂힌 책";
 export const MAX_SHELF_NAME = 50;
-/** Logs tagged per "fill tags" click. */
-export const FILL_TAGS_BATCH = 20;
 
 export interface Shelf {
   id: string;
@@ -27,7 +25,6 @@ export interface BookSummary {
 export interface BookshelfView {
   shelves: Shelf[];
   books: BookSummary[];
-  untaggedCount: number;
   tags: string[];
 }
 
