@@ -31,6 +31,8 @@ export class FakeDrawerRepo implements DrawerRepo {
   updates = new Set<number>();
   tokens = new Map<string, { userId: string; used: boolean; expired: boolean }>();
   links: Link[] = [];
+  /** Telegram user id -> the account it left. Mirrors private.telegram_unlinks; the fake never reaches KST midnight. */
+  unlinks = new Map<number, string>();
   projects: (ProjectSummary & { userId: string; shelfId?: string | null; createdAt?: number })[] = [];
   currentProject = new Map<string, string>();
   /** Project ids with a STAR summary (projects.ended_at set). */
@@ -59,10 +61,21 @@ export class FakeDrawerRepo implements DrawerRepo {
     if (this.links.some((l) => l.telegramUserId === telegramUserId && l.userId !== token.userId)) {
       return "telegram_taken" as const;
     }
+    const leftUser = this.unlinks.get(telegramUserId);
+    if (leftUser !== undefined && leftUser !== token.userId) return "telegram_cooldown" as const;
+    const previous = this.links.find((l) => l.userId === token.userId);
+    if (previous && previous.telegramUserId !== telegramUserId) this.unlinks.set(previous.telegramUserId, previous.userId);
     this.links = this.links.filter((l) => l.userId !== token.userId);
     this.links.push({ userId: token.userId, telegramUserId, chatId, blocked: false });
     token.used = true;
     return "linked" as const;
+  }
+
+  /** Unlink as the DB trigger sees it: the Telegram account is remembered until KST midnight. */
+  removeLink(userId: string): void {
+    const link = this.links.find((l) => l.userId === userId);
+    if (link) this.unlinks.set(link.telegramUserId, userId);
+    this.links = this.links.filter((l) => l.userId !== userId);
   }
 
   async findLinkByTelegramUser(telegramUserId: number) {

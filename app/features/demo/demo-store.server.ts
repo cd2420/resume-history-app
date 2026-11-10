@@ -32,6 +32,13 @@ const DEMO_CONSENT_TERMS: ConsentTerm[] = [
   },
 ];
 
+const DEMO_TELEGRAM_TERM: ConsentTerm = {
+  kind: "telegram",
+  version: "demo",
+  title: "[필수] 텔레그램 연결을 위한 개인정보 수집·이용",
+  items: ["데모 모드에서는 실제 텔레그램 대신 봇 시뮬레이터를 써요."],
+};
+
 export const DEMO_USER_ID = "00000000-0000-4000-8000-00000000de00";
 export const DEMO_TELEGRAM_USER_ID = 700_000_001;
 
@@ -255,6 +262,8 @@ export class DemoStore extends FakeDrawerRepo {
       recordConsents: async () => {
         this.consents.add(userId);
       },
+      getTelegramTerm: async () => DEMO_TELEGRAM_TERM,
+      ensureConsent: async () => {},
       getOverview: async () => {
         const link = this.links.find((l) => l.userId === userId);
         return {
@@ -284,7 +293,7 @@ export class DemoStore extends FakeDrawerRepo {
         return token;
       },
       unlinkTelegram: async () => {
-        this.links = this.links.filter((l) => l.userId !== userId);
+        this.removeLink(userId);
       },
       setNotifyHour: async (hour) => {
         if (hour === null) this.notifyHour.delete(userId);

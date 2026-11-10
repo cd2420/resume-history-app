@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { type BookshelfStore, createSupabaseBookshelf } from "./bookshelf.server";
-import { type ConsentTerm, currentTerms, hasConsentedTo } from "./consent";
+import { CONSENT_KINDS, type ConsentKind, type ConsentTerm, currentTerms, hasConsentedTo, TELEGRAM_CONSENT_KIND } from "./consent";
 import { createLinkToken, LINK_TOKEN_TTL_MS } from "./link-token.server";
 import { draftFields, type StarDraft, type StarFields, type StarSummary } from "./star";
 
@@ -60,12 +60,36 @@ export interface DrawerOverview {
 // userId filters duplicate the policy for query plans and as a second guard.
 
 /** The current terms: latest published row per kind (RLS hides unpublished rows). */
-export async function getConsentTerms(supabase: SupabaseClient): Promise<ConsentTerm[]> {
+export async function getConsentTerms(
+  supabase: SupabaseClient,
+  kinds: readonly ConsentKind[] = CONSENT_KINDS,
+): Promise<ConsentTerm[]> {
   const rows = check(
     "getConsentTerms",
-    await supabase.from("consent_terms").select("kind, version, title, items, published_at"),
+    await supabase.from("consent_terms").select("kind, version, title, items, published_at").in("kind", kinds),
   );
-  return currentTerms(rows.map(({ published_at, ...term }) => ({ ...term, publishedAt: published_at })));
+  return currentTerms(rows.map(({ published_at, ...term }) => ({ ...term, publishedAt: published_at })), kinds);
+}
+
+export async function getTelegramTerm(supabase: SupabaseClient): Promise<ConsentTerm> {
+  const [term] = await getConsentTerms(supabase, [TELEGRAM_CONSENT_KIND]);
+  return term;
+}
+
+/** Records consent to `term` unless this user already agreed to that exact version. */
+export async function ensureConsent(supabase: SupabaseClient, userId: string, term: ConsentTerm): Promise<void> {
+  const existing = checkMaybe(
+    "ensureConsent.find",
+    await supabase
+      .from("consents")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("kind", term.kind)
+      .eq("version", term.version)
+      .limit(1),
+  );
+  if (existing && existing.length > 0) return;
+  await recordConsents(supabase, userId, [term]);
 }
 
 export async function hasRequiredConsents(supabase: SupabaseClient, userId: string): Promise<boolean> {
@@ -266,6 +290,8 @@ export interface DrawerWebStore extends BookshelfStore {
   getConsentTerms(): Promise<ConsentTerm[]>;
   hasRequiredConsents(): Promise<boolean>;
   recordConsents(terms: ConsentTerm[]): Promise<void>;
+  getTelegramTerm(): Promise<ConsentTerm>;
+  ensureConsent(term: ConsentTerm): Promise<void>;
   getOverview(): Promise<DrawerOverview>;
   issueLinkToken(): Promise<string>;
   unlinkTelegram(): Promise<void>;
@@ -288,6 +314,8 @@ export function createSupabaseWebStore(supabase: SupabaseClient, userId: string)
     getConsentTerms: () => getConsentTerms(supabase),
     hasRequiredConsents: () => hasRequiredConsents(supabase, userId),
     recordConsents: (terms) => recordConsents(supabase, userId, terms),
+    getTelegramTerm: () => getTelegramTerm(supabase),
+    ensureConsent: (term) => ensureConsent(supabase, userId, term),
     getOverview: () => getDrawerOverview(supabase, userId),
     issueLinkToken: () => issueLinkToken(supabase, userId),
     unlinkTelegram: () => unlinkTelegram(supabase, userId),

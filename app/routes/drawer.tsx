@@ -46,16 +46,18 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const { store, headers, isDemo } = await requireConsentedSession(request);
   const filters = parseSearchFilters(new URL(request.url).searchParams);
-  const [shelf, hits, overview] = await Promise.all([
+  const [shelf, hits, overview, telegramTerm] = await Promise.all([
     store.getBookshelf(),
     hasFilters(filters) ? store.search(filters) : Promise.resolve(null),
     // ponytail: overview also loads projects and recent logs; add a narrow status query if this page gets slow.
     store.getOverview(),
+    store.getTelegramTerm(),
   ]);
   const setup = {
     isLinked: overview.telegram !== null,
     notifyHour: overview.notifyHour,
     botUsername: getEnv().TELEGRAM_BOT_USERNAME,
+    term: telegramTerm,
   };
   return data({ ...shelf, filters, hits, isDemo, setup }, { headers });
 }

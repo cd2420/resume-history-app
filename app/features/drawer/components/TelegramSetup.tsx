@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 
+import { type ConsentTerm, versionField } from "~/features/drawer/consent";
 import type { action as settingsAction } from "~/routes/drawer.settings";
 
 const SETTINGS = "/drawer/settings";
@@ -21,10 +22,10 @@ function useRevalidateOnReturn() {
   }, [revalidate]);
 }
 
-type ConnectProps = { isDemo: boolean; botUsername: string };
+type ConnectProps = { isDemo: boolean; botUsername: string; term: ConsentTerm };
 
 /** Issues a one-time deep link through the settings action and shows the button that opens the bot. */
-export function TelegramConnect({ isDemo, botUsername }: ConnectProps) {
+export function TelegramConnect({ isDemo, botUsername, term }: ConnectProps) {
   const fetcher = useFetcher<typeof settingsAction>();
   const deepLink = fetcher.data?.deepLink;
   const isIssuing = fetcher.state !== "idle";
@@ -50,7 +51,20 @@ export function TelegramConnect({ isDemo, botUsername }: ConnectProps) {
   }
 
   return (
-    <fetcher.Form method="post" action={SETTINGS} className="flex flex-col gap-1">
+    <fetcher.Form method="post" action={SETTINGS} className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1 rounded bg-slate-900 p-3 text-xs leading-relaxed">
+        <p className="font-semibold">{term.title}</p>
+        <ul className="list-disc pl-4 text-slate-300">
+          {term.items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <input type="hidden" name={versionField(term.kind)} value={term.version} />
+        <label className="mt-1 flex items-center gap-2 text-sm">
+          <input type="checkbox" name={term.kind} required className="h-4 w-4" />
+          <span>동의합니다</span>
+        </label>
+      </div>
       <button name="intent" value="connect" disabled={isIssuing} className={button}>
         {isIssuing ? "링크 만드는 중…" : "텔레그램 연결하기"}
       </button>
@@ -102,7 +116,7 @@ function Step({ n, isDone, title, children }: { n: number; isDone: boolean; titl
 type SetupProps = ConnectProps & { isLinked: boolean; notifyHour: number | null };
 
 /** First-run card on the bookshelf: connect Telegram, then pick the daily prompt hour. Hidden once both are done. */
-export function TelegramSetup({ isLinked, notifyHour, isDemo, botUsername }: SetupProps) {
+export function TelegramSetup({ isLinked, notifyHour, isDemo, botUsername, term }: SetupProps) {
   if (isLinked && notifyHour !== null) return null;
   return (
     <section
@@ -116,7 +130,7 @@ export function TelegramSetup({ isLinked, notifyHour, isDemo, botUsername }: Set
       </div>
       <ol className="flex flex-col gap-4">
         <Step n={1} isDone={isLinked} title="텔레그램 연결">
-          <TelegramConnect isDemo={isDemo} botUsername={botUsername} />
+          <TelegramConnect isDemo={isDemo} botUsername={botUsername} term={term} />
         </Step>
         <Step n={2} isDone={notifyHour !== null} title="질문 받을 시간 고르기">
           {isLinked ? (

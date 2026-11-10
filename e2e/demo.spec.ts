@@ -71,6 +71,7 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
   // M1: a first-time user links the simulator bot straight from the bookshelf's setup card.
   const setup = page.getByTestId("telegram-setup");
   await expect(setup).toContainText("1. 텔레그램 연결");
+  await setup.getByRole("checkbox", { name: "동의합니다" }).check();
   await setup.getByRole("button", { name: "텔레그램 연결하기" }).click();
   await page.getByTestId("deep-link").click();
   await expect(page).toHaveURL(/\/drawer\/demo-bot\?start=/);
@@ -164,6 +165,7 @@ test("demo: the hourly prompt is skipped once today is logged", async ({ page })
   await signInFresh(page);
   await page.goto("/drawer/settings");
   await settled(page);
+  await page.getByRole("checkbox", { name: "동의합니다" }).check();
   await page.getByRole("button", { name: "텔레그램 연결하기" }).click();
   await page.getByTestId("deep-link").click();
   await settled(page);

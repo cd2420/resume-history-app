@@ -1,8 +1,11 @@
 // Consent terms are stored in public.consent_terms; the current terms of a kind are its
 // latest published row. Shared by server code and the consent page (no server-only imports).
 
+/** Required before using the drawer at all. */
 export const CONSENT_KINDS = ["privacy", "overseas_transfer"] as const;
-export type ConsentKind = (typeof CONSENT_KINDS)[number];
+/** Required only to connect Telegram; shown at the connect button. */
+export const TELEGRAM_CONSENT_KIND = "telegram";
+export type ConsentKind = (typeof CONSENT_KINDS)[number] | typeof TELEGRAM_CONSENT_KIND;
 
 export interface ConsentTerm {
   kind: ConsentKind;
@@ -21,9 +24,12 @@ export function versionField(kind: ConsentKind): string {
   return `version_${kind}`;
 }
 
-/** Latest published terms per kind, in CONSENT_KINDS order. Missing terms are a setup error. */
-export function currentTerms(rows: Array<ConsentTerm & { publishedAt: string }>): ConsentTerm[] {
-  return CONSENT_KINDS.map((kind) => {
+/** Latest published terms per kind, in `kinds` order. Missing terms are a setup error. */
+export function currentTerms(
+  rows: Array<ConsentTerm & { publishedAt: string }>,
+  kinds: readonly ConsentKind[] = CONSENT_KINDS,
+): ConsentTerm[] {
+  return kinds.map((kind) => {
     const latest = rows
       .filter((row) => row.kind === kind)
       .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))[0];

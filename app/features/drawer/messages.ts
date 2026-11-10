@@ -41,6 +41,7 @@ export const MESSAGES = {
   linkInvalid: (appUrl: string) =>
     `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
   telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
+  telegramCooldown: "이 텔레그램 계정은 오늘 다른 계정에서 연결을 해제했어요. 내일(한국 시간 자정 이후) 다시 연결해 주세요.",
   help: (appUrl: string) =>
     "이력서랍 사용법\n" +
     "• 정해진 시간에 질문 3개가 와요. 답하면 기밀을 가린 카드가 오고, [저장]을 누르면 서랍에 들어가요.\n" +

@@ -1,13 +1,18 @@
 import { kstDate } from "~/lib/kst";
 import type { InlineKeyboard, TelegramClient } from "~/features/telegram/telegram.server";
-import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from "~/features/telegram/update-schema";
+import type {
+  TelegramCallbackQuery,
+  TelegramChatMemberUpdated,
+  TelegramMessage,
+  TelegramUpdate,
+} from "~/features/telegram/update-schema";
 import type { DrawerLlmClient } from "./generalize.server";
 import { callbackData, parseCallbackData } from "./ids";
 import { hashLinkToken, isLinkTokenShape } from "./link-token.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "./limits";
 import { cardKeyboard, MESSAGES, QUESTIONS, recordButton, renderCard } from "./messages";
 import { answerQuestion, openRecording, skipQuestion } from "./record.server";
-import type { DrawerRepo, Pending, ProjectSummary, TelegramLink } from "./repo";
+import type { DrawerRepo, LinkResult, Pending, ProjectSummary, TelegramLink } from "./repo";
 
 export { MESSAGES, renderCard };
 
@@ -31,10 +36,25 @@ export async function handleUpdate(deps: BotDeps, update: TelegramUpdate): Promi
     await handleCallback(deps, update.callback_query);
     return;
   }
+  if (update.my_chat_member) {
+    await handleMembership(deps, update.my_chat_member);
+    return;
+  }
   const message = update.message;
   if (!message?.from || message.from.is_bot || message.chat.type !== "private") return;
   if (message.text === undefined) return;
   await handleMessage(deps, message, message.from.id, message.text.trim());
+}
+
+// Keeps telegram_links.blocked_at in step with the user blocking or restarting the bot, so the
+// hourly notifier stops right away instead of learning it from a 403. Sends nothing.
+async function handleMembership({ repo }: BotDeps, update: TelegramChatMemberUpdated) {
+  if (update.chat.type !== "private") return;
+  const link = await repo.findLinkByTelegramUser(update.from.id);
+  if (!link) return;
+  const status = update.new_chat_member.status;
+  if (status === "kicked") await repo.markBlocked(link.userId);
+  else if (status === "member" && link.blocked) await repo.clearBlocked(link.userId);
 }
 
 async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUserId: number, text: string) {
@@ -48,12 +68,13 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
     const result = isLinkTokenShape(token)
       ? await repo.linkTelegram(hashLinkToken(token), telegramUserId, chatId)
       : "invalid";
-    const reply =
-      result === "linked"
-        ? MESSAGES.linked(appUrl)
-        : result === "telegram_taken"
-          ? MESSAGES.telegramTaken
-          : MESSAGES.linkInvalid(appUrl);
+    const replies: Record<LinkResult, string> = {
+      linked: MESSAGES.linked(appUrl),
+      telegram_taken: MESSAGES.telegramTaken,
+      telegram_cooldown: MESSAGES.telegramCooldown,
+      invalid: MESSAGES.linkInvalid(appUrl),
+    };
+    const reply = replies[result];
     await telegram.sendMessage(chatId, reply);
     return;
   }

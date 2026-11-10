@@ -18,16 +18,17 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  const isDeleted = new URL(request.url).searchParams.get("deleted") === "1";
   if (getEnv().isDemo) {
     if (hasDemoSession(request)) throw redirect("/drawer");
-    return data({ isDemo: true });
+    return data({ isDemo: true, isDeleted });
   }
   const { supabase, headers } = createSupabase(request);
   const { data: auth } = await supabase.auth.getClaims();
   if (auth?.claims.sub) {
     throw redirect("/drawer", { headers });
   }
-  return data({ isDemo: false }, { headers });
+  return data({ isDemo: false, isDeleted }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -61,6 +62,11 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
     <main className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-50">
       <Form method="post" className="flex w-full max-w-sm flex-col gap-4">
         <h1 className="text-2xl font-bold">로그인</h1>
+        {loaderData?.isDeleted && (
+          <p role="status" className="rounded bg-slate-800 px-3 py-2 text-sm text-slate-200">
+            탈퇴했어요. 모든 기록을 지웠어요.
+          </p>
+        )}
         {loaderData?.isDemo && (
           <p className="rounded bg-amber-950 px-3 py-2 text-sm text-amber-300">
             데모 모드: 아무 이메일과 비밀번호로 로그인할 수 있어요.

@@ -22,6 +22,12 @@ function fail(operation: string, error: PostgrestError): never {
   throw new DrawerDbError(operation, error.code);
 }
 
+/** Account deletion: every user table references auth.users with on delete cascade. */
+export async function deleteAuthUser(admin: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) throw new DrawerDbError("deleteAuthUser", error.code);
+}
+
 interface PendingRow {
   id: string;
   user_id: string;

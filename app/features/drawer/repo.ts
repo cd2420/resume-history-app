@@ -51,7 +51,8 @@ export type SessionPatch = Partial<Pick<RecordSession, "step" | "task" | "role" 
 
 export type OpenSessionOutcome = "opened" | "exists" | "limit";
 
-export type LinkResult = "linked" | "invalid" | "telegram_taken";
+/** telegram_cooldown: this Telegram account left a different account today (unlink or account deletion). */
+export type LinkResult = "linked" | "invalid" | "telegram_taken" | "telegram_cooldown";
 export type NotificationStatus = "sent" | "failed" | "blocked";
 
 export interface DueNotification {

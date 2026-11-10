@@ -121,6 +121,24 @@ describe("linking", () => {
     expect((await repo.findLinkByTelegramUser(TG_A))?.userId).toBe(USER_A);
   });
 
+  test("a Telegram account that left another account today cannot join a new one", async () => {
+    linkUser(USER_A, TG_A);
+    repo.removeLink(USER_A); // unlink or account deletion
+    const forB = createLinkToken();
+    repo.tokens.set(forB.tokenHash, { userId: USER_B, used: false, expired: false });
+
+    await handleUpdate(deps, text(TG_A, `/start ${forB.token}`));
+
+    expect(lastText()).toBe(MESSAGES.telegramCooldown);
+    expect(repo.links).toHaveLength(0);
+
+    // The same account may relink: its daily usage is still counted.
+    const forA = createLinkToken();
+    repo.tokens.set(forA.tokenHash, { userId: USER_A, used: false, expired: false });
+    await handleUpdate(deps, text(TG_A, `/start ${forA.token}`));
+    expect(lastText()).toBe(MESSAGES.linked(APP_URL));
+  });
+
   test("ignores group chats and bots", async () => {
     linkUser(USER_A, TG_A);
     await handleUpdate(deps, { update_id: 99, message: { message_id: 1, from: { id: TG_A }, chat: { id: -5, type: "group" }, text: RAW } });
@@ -464,6 +482,37 @@ describe("recording sessions", () => {
   });
 });
 
+
+describe("bot membership", () => {
+  function membership(from: number, status: string, chatType = "private"): TelegramUpdate {
+    return {
+      update_id: updateId++,
+      my_chat_member: { from: { id: from }, chat: { id: from, type: chatType }, new_chat_member: { status } },
+    };
+  }
+
+  test("marks the link blocked when the user blocks the bot", async () => {
+    linkUser(USER_A, TG_A);
+    await handleUpdate(deps, membership(TG_A, "kicked"));
+    expect(repo.links[0].blocked).toBe(true);
+    expect(telegram.sent).toHaveLength(0);
+  });
+
+  test("clears the block when the user restarts the bot", async () => {
+    linkUser(USER_A, TG_A);
+    repo.links[0].blocked = true;
+    await handleUpdate(deps, membership(TG_A, "member"));
+    expect(repo.links[0].blocked).toBe(false);
+  });
+
+  test("ignores unlinked users and non-private chats", async () => {
+    linkUser(USER_A, TG_A);
+    await handleUpdate(deps, membership(TG_B, "kicked"));
+    await handleUpdate(deps, membership(TG_A, "kicked", "group"));
+    expect(repo.links[0].blocked).toBe(false);
+    expect(telegram.sent).toHaveLength(0);
+  });
+});
 
 describe("switching project mid-session", () => {
   test("says the open session still goes to its original book", async () => {

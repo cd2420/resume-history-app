@@ -1,13 +1,13 @@
 import { appendFileSync } from "node:fs";
 
-import { getDemoStore } from "~/features/demo/demo-store.server";
+import { getDemoStore, resetDemoStore } from "~/features/demo/demo-store.server";
 import { createFakeTelegram } from "~/features/telegram/fake-telegram";
 import { createTelegramClient, type TelegramClient } from "~/features/telegram/telegram.server";
 import { getEnv } from "~/lib/env.server";
 import { getLlm } from "~/lib/llm.server";
 import { getSupabaseAdmin } from "~/lib/supabase-admin.server";
 import type { BotDeps } from "./bot.server";
-import { createDrawerRepo } from "./drawer.server";
+import { createDrawerRepo, deleteAuthUser } from "./drawer.server";
 import type { NotifyDeps } from "./notify.server";
 
 let cachedTelegram: TelegramClient | undefined;
@@ -43,4 +43,13 @@ export function getNotifyDeps(): NotifyDeps {
     return { repo: store, telegram: store.telegram, now: () => new Date(), sleep: async () => {} };
   }
   return { repo: createDrawerRepo(getSupabaseAdmin()), telegram: getTelegram(), now: () => new Date() };
+}
+
+/** Deletes the user and all their data. Demo mode has one shared sample user, so it resets the sample data. */
+export async function deleteAccount(userId: string): Promise<void> {
+  if (getEnv().isDemo) {
+    resetDemoStore();
+    return;
+  }
+  await deleteAuthUser(getSupabaseAdmin(), userId);
 }
