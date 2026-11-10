@@ -15,6 +15,11 @@ export function kstHour(now: Date): number {
   return shifted(now).getUTCHours();
 }
 
+/** The KST midnight that started the current KST day. */
+export function kstStartOfDay(now: Date): Date {
+  return new Date(kstNextMidnight(now).getTime() - 24 * 60 * 60 * 1000);
+}
+
 /** The next KST midnight after `now` (the end of the current KST day). */
 export function kstNextMidnight(now: Date): Date {
   const [year, month, day] = kstDate(now).split("-").map(Number);

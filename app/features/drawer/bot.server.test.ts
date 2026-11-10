@@ -204,7 +204,7 @@ describe("daily answer", () => {
 
     expect(repo.logs).toHaveLength(0);
     expect(repo.pendings).toHaveLength(0);
-    expect(lastText()).toBe(MESSAGES.cancelled);
+    expect(lastText()).toBe(`${MESSAGES.cancelled}\n\n${MESSAGES.dayDone}`);
   });
 
   test("move -> pick saves into the chosen project", async () => {
@@ -336,17 +336,24 @@ describe("daily answer", () => {
     expect(lastText()).toBe(MESSAGES.help(APP_URL));
   });
 
-  test("the card shows tags and the saved log keeps them, also after a rewrite", async () => {
+  // One session a day, so the save and the rewrite paths are checked separately.
+  test("the card shows tags and the saved log keeps them", async () => {
     withProject(USER_A);
-    const first = await sendAnswer();
+    const pending = await sendAnswer();
     expect(lastText()).toContain("태그: #Redis #캐시 #성능 개선");
-    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: first.id })));
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: pending.id })));
 
-    const second = await sendAnswer();
-    await handleUpdate(deps, press(TG_A, callbackData({ kind: "edit", pendingId: second.id })));
+    expect(repo.logs.map((log) => log.tags)).toEqual([FAKE_GENERALIZATION.tags]);
+  });
+
+  test("a rewritten card keeps its tags", async () => {
+    withProject(USER_A);
+    const pending = await sendAnswer();
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "edit", pendingId: pending.id })));
     await handleUpdate(deps, text(TG_A, "고친 글"));
 
-    expect(repo.logs.map((log) => log.tags)).toEqual([FAKE_GENERALIZATION.tags, FAKE_GENERALIZATION.tags]);
+    expect(repo.logs.map((log) => log.tags)).toEqual([FAKE_GENERALIZATION.tags]);
+    expect(lastText()).toContain(MESSAGES.dayDone);
   });
 
   test("passes the user's existing tags to the model, not another user's", async () => {
@@ -457,15 +464,33 @@ describe("recording sessions", () => {
     vi.useRealTimers();
   });
 
-  test("at most three sessions a day", async () => {
-    for (let i = 0; i < 3; i++) {
-      const pending = await sendAnswer();
-      await handleUpdate(deps, press(TG_A, callbackData({ kind: "cancel", pendingId: pending.id })));
-    }
+  test("an admin is not held to the daily session or per-session AI limits", async () => {
+    repo.roles.set(USER_A, "admin");
+    const first = await sendAnswer();
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: first.id })));
+
+    await sendAnswer();
+    expect(repo.sessions).toHaveLength(2);
+
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    llmCreate.mockResolvedValue(fakeResponse("not json"));
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: repo.pendings.at(-1)!.id })));
+    await handleUpdate(deps, text(TG_A, "/record"));
+    for (let i = 0; i < 7; i++) await handleUpdate(deps, text(TG_A, RAW));
+    expect(lastText()).not.toBe(MESSAGES.aiLimit);
+    error.mockRestore();
+  });
+
+  test("one AI-assisted session a day, then the bot points to the web", async () => {
+    const pending = await sendAnswer();
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: pending.id })));
+    expect(lastText()).toContain(MESSAGES.dayDone);
+
     await handleUpdate(deps, text(TG_A, "/record"));
 
     expect(lastText()).toBe(MESSAGES.dailyLimit);
-    expect(repo.sessions).toHaveLength(3);
+    expect(repo.sessions).toHaveLength(1);
+    expect(llmCreate).toHaveBeenCalledTimes(1);
   });
 
   test("a session stops calling the model after five attempts", async () => {

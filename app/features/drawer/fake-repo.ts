@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { DAILY_SESSION_LIMIT } from "./limits";
+import type { UserRole } from "./roles";
 import type { DrawerRepo, NotificationStatus, Pending, ProjectSummary, RecordSession, SessionPatch } from "./repo";
 
 export interface FakeSession extends RecordSession {
@@ -176,6 +176,12 @@ export class FakeDrawerRepo implements DrawerRepo {
     return true;
   }
 
+  roles = new Map<string, UserRole>();
+
+  async getRole(userId: string): Promise<UserRole> {
+    return this.roles.get(userId) ?? "user";
+  }
+
   async openSession(userId: string, input: Parameters<DrawerRepo["openSession"]>[1]) {
     const now = new Date();
     for (const s of this.sessions) {
@@ -183,7 +189,8 @@ export class FakeDrawerRepo implements DrawerRepo {
     }
     const open = this.sessions.find((s) => s.userId === userId && s.status === "open");
     if (open) return { outcome: "exists" as const, session: { ...open } };
-    if (this.sessions.filter((s) => s.userId === userId && s.kstDate === input.kstDate).length >= DAILY_SESSION_LIMIT) {
+    const today = this.sessions.filter((s) => s.userId === userId && s.kstDate === input.kstDate).length;
+    if (input.dailyLimit !== null && today >= input.dailyLimit) {
       return { outcome: "limit" as const, session: null };
     }
     if (!this.owned(userId, input.projectId)) throw new Error("foreign project");

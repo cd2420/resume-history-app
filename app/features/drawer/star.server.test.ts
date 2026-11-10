@@ -28,6 +28,32 @@ async function bookWithLogs() {
 }
 
 describe("generateStar", () => {
+  test("an admin can make several STARs a day and regenerate a book", async () => {
+    demo.roles.set(DEMO_USER_ID, "admin");
+    const books = (await store.getBookshelf()).books.filter((b) => b.logCount > 0);
+
+    await generateStar(store, llm, books[0].id);
+    await generateStar(store, llm, books[1].id);
+    await generateStar(store, llm, books[0].id);
+
+    expect(create).toHaveBeenCalledTimes(3);
+    expect((await store.getStar(books[0].id))!.generationCount).toBe(2);
+  });
+
+  test("one STAR a day per user, across books, before calling the model", async () => {
+    const books = (await store.getBookshelf()).books.filter((b) => b.logCount > 0);
+    // 2026-11-10 23:30 KST, then 00:10 KST the next day.
+    const tonight = new Date("2026-11-10T14:30:00Z");
+    const tomorrow = new Date("2026-11-10T15:10:00Z");
+
+    await generateStar(store, llm, books[0].id, tonight);
+    await expect(generateStar(store, llm, books[1].id, tonight)).rejects.toMatchObject({ reason: "daily_limit" });
+    expect(create).toHaveBeenCalledTimes(1);
+
+    await generateStar(store, llm, books[1].id, tomorrow);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
   test("sends only the book's generalized logs, oldest first, with store: false", async () => {
     const { id, logs } = await bookWithLogs();
 

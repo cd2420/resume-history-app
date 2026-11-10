@@ -122,6 +122,7 @@ describe("hourly prompt sessions", () => {
       chatId: 1,
       kstDate: "2026-11-10",
       source: "user",
+      dailyLimit: 1,
       expiresAt: new Date("2026-11-10T15:00:00Z"),
     });
 

@@ -3,6 +3,7 @@
 // telegram_links. The implementation (drawer.server.ts) uses the RLS-bypassing secret key.
 
 import type { ChangeCategory } from "./generalize.server";
+import type { UserRole } from "./roles";
 
 export interface TelegramLink {
   userId: string;
@@ -68,6 +69,8 @@ export interface DrawerRepo {
   clearBlocked(userId: string): Promise<void>;
   markBlocked(userId: string): Promise<void>;
 
+  /** The user's tier from profiles.role; "user" when the profile is missing. */
+  getRole(userId: string): Promise<UserRole>;
   getCurrentProject(userId: string): Promise<ProjectSummary | null>;
   listProjects(userId: string): Promise<ProjectSummary[]>;
   getProject(userId: string, projectId: string): Promise<ProjectSummary | null>;
@@ -97,7 +100,8 @@ export interface DrawerRepo {
   /** Closes an expired open session, reuses an open one, enforces the daily limit. */
   openSession(
     userId: string,
-    input: { projectId: string; chatId: number; kstDate: string; source: "notify" | "user"; expiresAt: Date },
+    // dailyLimit null = no daily cap (admins).
+    input: { projectId: string; chatId: number; kstDate: string; source: "notify" | "user"; expiresAt: Date; dailyLimit: number | null },
   ): Promise<{ outcome: OpenSessionOutcome; session: RecordSession | null }>;
   /** The user's open, unexpired session, or null. */
   getOpenSession(userId: string, now: Date): Promise<RecordSession | null>;

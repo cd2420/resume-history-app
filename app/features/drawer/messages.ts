@@ -76,8 +76,12 @@ export const MESSAGES = {
   sessionUser: (book: string) => `기록을 시작할게요 🗄️\n${sessionHint(book)}\n\n${QUESTIONS[1]}`,
   sessionResume: "진행 중인 기록이 있어요. 이어서 답해 주세요.",
   outsideSession: "지금은 기록 시간이 아니에요.\n오늘 한 일을 남기려면 아래 버튼을 눌러 주세요.",
-  dailyLimit: "오늘은 기록을 충분히 남기셨어요. 내일 다시 만나요 🗄️",
-  aiLimit: "이번 기록은 더 정리할 수 없어요. 아래 버튼으로 새로 시작해 주세요.",
+  dailyLimit:
+    "오늘 기록은 이미 남기셨어요. AI 정리는 하루 한 번이에요.\n더 남길 일이 있으면 웹 책장의 '기록 직접 쓰기'로 적어 주세요. 내일 다시 만나요 🗄️",
+  /** Sent when the day's one round ends (saved or dropped). */
+  dayDone: "오늘 기록은 여기까지예요. AI 정리는 하루 한 번이에요.\n더 남길 일이 있으면 웹 책장의 '기록 직접 쓰기'로 적어 주세요. 내일 정한 시간에 다시 물어볼게요 🗄️",
+  aiLimit:
+    "이번 답은 AI가 정리하지 못했어요. AI 정리는 하루 한 번이라 오늘은 다시 시작할 수 없어요.\n웹 책장의 '기록 직접 쓰기'로 남겨 주세요.",
   skipped: "→ 건너뛰었어요",
 } as const;
 

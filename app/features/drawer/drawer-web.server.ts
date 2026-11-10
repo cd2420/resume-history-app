@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { type BookshelfStore, createSupabaseBookshelf } from "./bookshelf.server";
 import { CONSENT_KINDS, type ConsentKind, type ConsentTerm, currentTerms, hasConsentedTo, TELEGRAM_CONSENT_KIND } from "./consent";
 import { createLinkToken, LINK_TOKEN_TTL_MS } from "./link-token.server";
+import { parseRole, type UserRole } from "./roles";
 import { draftFields, type StarDraft, type StarFields, type StarSummary } from "./star";
 
 const LOG_LIMIT = 300;
@@ -231,8 +232,31 @@ export async function getStar(supabase: SupabaseClient, userId: string, projectI
   };
 }
 
-export async function putStarDraft(supabase: SupabaseClient, userId: string, projectId: string, draft: StarDraft, count: number) {
-  const now = new Date().toISOString();
+export async function getRole(supabase: SupabaseClient, userId: string): Promise<UserRole> {
+  const { data, error } = await supabase.from("profiles").select("role").eq("user_id", userId).maybeSingle();
+  if (error) throw new DrawerWebError("getRole", error.code);
+  return parseRole(data?.role);
+}
+
+export async function countStarsSince(supabase: SupabaseClient, userId: string, since: Date): Promise<number> {
+  const { count, error } = await supabase
+    .from("star_summaries")
+    .select("project_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("generated_at", since.toISOString());
+  if (error) throw new DrawerWebError("countStarsSince", error.code);
+  return count ?? 0;
+}
+
+export async function putStarDraft(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+  draft: StarDraft,
+  count: number,
+  at: Date = new Date(),
+) {
+  const now = at.toISOString();
   checkWrite(
     "putStarDraft",
     await supabase.from("star_summaries").upsert({
@@ -303,7 +327,11 @@ export interface DrawerWebStore extends BookshelfStore {
   createLog(projectId: string, logDate: string, content: string): Promise<void>;
   getStar(projectId: string): Promise<StarSummary | null>;
   /** Stores a fresh generated draft (replacing any earlier one) and marks the book ended. */
-  putStarDraft(projectId: string, draft: StarDraft, generationCount: number): Promise<void>;
+  putStarDraft(projectId: string, draft: StarDraft, generationCount: number, at?: Date): Promise<void>;
+  /** The signed-in user's tier, read from their own profile row (never from the request). */
+  getRole(): Promise<UserRole>;
+  /** STAR summaries generated (or regenerated) since `since`, across the user's books. */
+  countStarsSince(since: Date): Promise<number>;
   saveStar(projectId: string, fields: StarFields, edited: boolean): Promise<void>;
   updateLog(logId: string, content: string): Promise<void>;
   deleteLog(logId: string): Promise<void>;
@@ -326,7 +354,9 @@ export function createSupabaseWebStore(supabase: SupabaseClient, userId: string)
     setCurrentProject: (projectId) => setCurrentProject(supabase, userId, projectId),
     createLog: (projectId, logDate, content) => createLog(supabase, userId, projectId, logDate, content),
     getStar: (projectId) => getStar(supabase, userId, projectId),
-    putStarDraft: (projectId, draft, count) => putStarDraft(supabase, userId, projectId, draft, count),
+    putStarDraft: (projectId, draft, count, at) => putStarDraft(supabase, userId, projectId, draft, count, at),
+    countStarsSince: (since) => countStarsSince(supabase, userId, since),
+    getRole: () => getRole(supabase, userId),
     saveStar: (projectId, fields, edited) => saveStarFields(supabase, userId, projectId, fields, edited),
     updateLog: (logId, content) => updateLog(supabase, userId, logId, content),
     deleteLog: (logId) => deleteLog(supabase, userId, logId),

@@ -177,24 +177,6 @@ test("demo: the hourly prompt is skipped once today is logged", async ({ page })
   await expect(page.getByTestId("transcript")).toContainText("알림 대상이 아니에요");
 });
 
-test("demo: saving an interview draft lands on the bookshelf", async ({ page }) => {
-  await signInFresh(page);
-  await page.goto("/onboarding");
-  await settled(page);
-  await expect(page.getByRole("link", { name: "책장" })).toHaveAttribute("href", "/drawer");
-
-  await page.getByLabel("답변").fill("A사에서 결제 시스템을 개편했어요");
-  await page.getByRole("button", { name: "보내기" }).click();
-  await page.getByRole("button", { name: "이 프로젝트 정리하기" }).click();
-  await expect(page.getByRole("region", { name: "프로젝트 초안" })).toBeVisible();
-  await page.getByLabel("프로젝트명").fill("인터뷰로 복원한 프로젝트");
-  await page.getByRole("button", { name: "저장" }).click();
-
-  await expect(page).toHaveURL(/\/drawer$/);
-  await settled(page);
-  await expect(shelf(page, "새로 꽂힌 책").getByRole("link", { name: "인터뷰로 복원한 프로젝트 열기" })).toBeVisible();
-});
-
 test("demo: a log written on the web lands in the book, also the first one of an empty book", async ({ page }) => {
   await signInFresh(page);
   await page.getByLabel("새 책 이름").fill("웹으로 쓰는 책");
@@ -204,14 +186,14 @@ test("demo: a log written on the web lands in the book, also the first one of an
   await settled(page);
   await expect(page.getByText("아직 기록이 없어요")).toBeVisible();
 
-  await page.getByText("✏️ 기록 직접 쓰기").click();
-  await page.getByLabel("새 기록 내용").fill("정산 배치 재시도 정책을 정리했어요");
+  await page.getByText("기록 직접 쓰기").click();
+  await page.getByLabel(/오늘 무엇을 했나요/).fill("정산 배치 재시도 정책을 정리했어요");
   await page.getByRole("button", { name: "기록 넣기" }).click();
 
   await expect(page.getByRole("status")).toContainText("기록을 넣었어요");
   await expect(page.getByTestId("log")).toHaveCount(1);
   await expect(page.getByTestId("log").first()).toContainText("정산 배치 재시도 정책을 정리했어요");
-  await expect(page.getByLabel("새 기록 내용")).toHaveValue("");
+  await expect(page.getByLabel(/오늘 무엇을 했나요/)).toHaveValue("");
 });
 
 test("demo: deleting the account signs out and wipes the data", async ({ page }) => {

@@ -6,10 +6,11 @@
 import { kstDate, kstNextMidnight } from "~/lib/kst";
 import type { TelegramClient } from "~/features/telegram/telegram.server";
 import { type DrawerLlmClient, generalize, GeneralizeError } from "./generalize.server";
-import { ANSWER_MAX_LENGTH, MAX_LOG_LENGTH, SESSION_AI_CALL_LIMIT } from "./limits";
-import { cardKeyboard, MESSAGES, QUESTIONS, questionKeyboard, recordButton, renderCard } from "./messages";
+import { ANSWER_MAX_LENGTH, DAILY_SESSION_LIMIT, MAX_LOG_LENGTH, SESSION_AI_CALL_LIMIT } from "./limits";
+import { cardKeyboard, MESSAGES, QUESTIONS, questionKeyboard, renderCard } from "./messages";
 import type { DrawerRepo, OpenSessionOutcome, RecordSession, SessionPatch, SessionStep } from "./repo";
 import { normalizeTags } from "./tags";
+import { isUnlimited } from "./roles";
 
 export interface RecordDeps {
   repo: DrawerRepo;
@@ -36,12 +37,14 @@ export async function openRecording(
     return "no_project";
   }
   const at = now();
+  const role = await repo.getRole(userId);
   const { outcome, session } = await repo.openSession(userId, {
     projectId: project.id,
     chatId,
     kstDate: kstDate(at),
     source,
     expiresAt: kstNextMidnight(at),
+    dailyLimit: isUnlimited(role) ? null : DAILY_SESSION_LIMIT,
   });
   if (outcome === "limit" || !session) {
     await telegram.sendMessage(chatId, MESSAGES.dailyLimit);
@@ -109,9 +112,10 @@ export async function answerQuestion(deps: AnswerDeps, session: RecordSession, t
     await telegram.sendMessage(session.chatId, MESSAGES.answerTooLong);
     return;
   }
-  if (session.aiCalls >= SESSION_AI_CALL_LIMIT) {
+  // The role is only looked up once the free-tier cap is reached.
+  if (session.aiCalls >= SESSION_AI_CALL_LIMIT && !isUnlimited(await repo.getRole(session.userId))) {
     await repo.updateSession(session.userId, session.id, { status: "cancelled" });
-    await telegram.sendMessage(session.chatId, MESSAGES.aiLimit, recordButton());
+    await telegram.sendMessage(session.chatId, MESSAGES.aiLimit);
     return;
   }
 

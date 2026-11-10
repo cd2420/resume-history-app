@@ -30,6 +30,7 @@ const STAR_ERRORS: Record<StarFailure, string> = {
   not_found: "정리할 책을 찾지 못했어요.",
   no_logs: "기록이 있어야 STAR로 정리할 수 있어요.",
   limit: "이 책은 이미 STAR를 정리했어요. 내용은 요약 페이지에서 직접 고쳐 저장할 수 있어요.",
+  daily_limit: "STAR 정리는 하루 한 번이에요. 내일 다시 정리할 수 있어요.",
 };
 
 const actionSchema = z.discriminatedUnion("intent", [

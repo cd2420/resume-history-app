@@ -6,10 +6,13 @@
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
+import { kstStartOfDay } from "~/lib/kst";
 import { LLM_MODEL } from "~/lib/llm.server";
 import type { BookLog } from "./bookshelf";
 import type { DrawerWebStore } from "./drawer-web.server";
 import { type DrawerLlmClient, GeneralizeError, requestJson } from "./generalize.server";
+import { DAILY_STAR_LIMIT } from "./limits";
+import { isUnlimited } from "./roles";
 import { STAR_PROMPT } from "./prompts";
 import { FREE_STAR_GENERATIONS, MAX_STAR_TEXT, STAR_FIELDS, type StarDraft, type StarFields, type StarPart, isEdited } from "./star";
 
@@ -22,7 +25,7 @@ const MAX_GAPS = 10;
 const starPartSchema = z.object({ text: z.string(), evidence: z.array(z.string()), gaps: z.array(z.string()) });
 const starSchema = z.object({ situation: starPartSchema, task: starPartSchema, action: starPartSchema, result: starPartSchema });
 
-export type StarFailure = "not_found" | "no_logs" | "limit";
+export type StarFailure = "not_found" | "no_logs" | "limit" | "daily_limit";
 
 export class StarError extends Error {
   constructor(readonly reason: StarFailure) {
@@ -53,12 +56,20 @@ function toPart(raw: z.infer<typeof starPartSchema>, idByRef: Map<string, string
 }
 
 /** Ends the book and stores a fresh draft. Throws StarError or GeneralizeError (model failure). */
-export async function generateStar(store: DrawerWebStore, llm: DrawerLlmClient, bookId: string): Promise<void> {
-  const [detail, existing] = await Promise.all([store.getBook(bookId), store.getStar(bookId)]);
+export async function generateStar(store: DrawerWebStore, llm: DrawerLlmClient, bookId: string, now: Date = new Date()): Promise<void> {
+  const [detail, existing, today, role] = await Promise.all([
+    store.getBook(bookId),
+    store.getStar(bookId),
+    store.countStarsSince(kstStartOfDay(now)),
+    store.getRole(),
+  ]);
   if (!detail) throw new StarError("not_found");
   if (detail.logs.length === 0) throw new StarError("no_logs");
   const count = (existing?.generationCount ?? 0) + 1;
-  if (count > FREE_STAR_GENERATIONS) throw new StarError("limit");
+  if (!isUnlimited(role)) {
+    if (count > FREE_STAR_GENERATIONS) throw new StarError("limit");
+    if (today >= DAILY_STAR_LIMIT) throw new StarError("daily_limit");
+  }
 
   const logs = pickLogs(detail.logs);
   const idByRef = new Map(logs.map((log, index) => [`L${index + 1}`, log.id]));
@@ -77,7 +88,7 @@ export async function generateStar(store: DrawerWebStore, llm: DrawerLlmClient, 
   if (!parsed.success) throw new GeneralizeError("invalid", { cause: parsed.error });
 
   const draft = Object.fromEntries(STAR_FIELDS.map((field) => [field, toPart(parsed.data[field], idByRef)])) as StarDraft;
-  await store.putStarDraft(bookId, draft, count);
+  await store.putStarDraft(bookId, draft, count, now);
 }
 
 /** Saves the reviewed text and records whether it differs from what the model wrote. */

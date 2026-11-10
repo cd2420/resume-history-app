@@ -7,12 +7,12 @@ import {
   sortBooks,
 } from "~/features/drawer/bookshelf";
 import type { ConsentTerm } from "~/features/drawer/consent";
+import type { UserRole } from "~/features/drawer/roles";
 import type { DrawerWebStore } from "~/features/drawer/drawer-web.server";
 import { draftFields, type StarSummary } from "~/features/drawer/star";
 import { FakeDrawerRepo } from "~/features/drawer/fake-repo";
 import { createLinkToken } from "~/features/drawer/link-token.server";
 import { normalizeTags, topTags } from "~/features/drawer/tags";
-import type { ProjectDraft } from "~/features/interview/schema";
 import { createFakeTelegram, type SentMessage } from "~/features/telegram/fake-telegram";
 import type { InlineKeyboard } from "~/features/telegram/telegram.server";
 
@@ -62,6 +62,7 @@ function daysAgo(days: number): string {
 export class DemoStore extends FakeDrawerRepo {
   consents = new Set<string>();
   stars = new Map<string, StarSummary>();
+  roles = new Map<string, UserRole>();
   transcript: TranscriptEntry[] = [];
   telegram = createFakeTelegram((message) => this.recordBot(message));
   private nextEntryId = 1;
@@ -142,11 +143,6 @@ export class DemoStore extends FakeDrawerRepo {
     } else if (message.text) {
       this.addEntry("system", `알림: ${message.text}`);
     }
-  }
-
-  addDraftProject(userId: string, draft: ProjectDraft) {
-    const project = this.addProject(userId, draft.project.title);
-    if (!this.currentProject.has(userId)) this.currentProject.set(userId, project.id);
   }
 
   private bookSummary(userId: string, project: (typeof this.projects)[number]): BookSummary {
@@ -307,10 +303,13 @@ export class DemoStore extends FakeDrawerRepo {
         if (owned(projectId)) this.currentProject.set(userId, projectId);
       },
       getStar: async (projectId) => (owned(projectId) ? (this.stars.get(projectId) ?? null) : null),
-      putStarDraft: async (projectId, draft, generationCount) => {
+      getRole: async () => this.roles.get(userId) ?? "user",
+      countStarsSince: async (since) =>
+        [...this.stars.entries()].filter(([projectId, star]) => owned(projectId) && star.generatedAt >= since.toISOString()).length,
+      putStarDraft: async (projectId, draft, generationCount, at = new Date()) => {
         const project = owned(projectId);
         if (!project) return;
-        const generatedAt = new Date().toISOString();
+        const generatedAt = at.toISOString();
         this.stars.set(projectId, { generated: draft, fields: draftFields(draft), status: "draft", edited: false, generationCount, generatedAt, savedAt: null });
         this.ended.add(projectId);
         if (this.currentProject.get(userId) === projectId) this.currentProject.delete(userId);

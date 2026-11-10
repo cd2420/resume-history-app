@@ -177,7 +177,7 @@ async function saveRewrite(deps: BotDeps, link: TelegramLink, pending: Pending, 
     return;
   }
   const project = await deps.repo.getProject(link.userId, pending.projectId);
-  await deps.telegram.sendMessage(chatId, MESSAGES.saved(project?.title ?? "", text));
+  await deps.telegram.sendMessage(chatId, `${MESSAGES.saved(project?.title ?? "", text)}\n\n${MESSAGES.dayDone}`);
 }
 
 async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
@@ -251,7 +251,7 @@ async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
         }
         const project = await repo.getProject(link.userId, pending.projectId);
         toast = "저장했어요";
-        await telegram.editMessageText(chatId, messageId, MESSAGES.saved(project?.title ?? "", pending.generalized));
+        await telegram.editMessageText(chatId, messageId, `${MESSAGES.saved(project?.title ?? "", pending.generalized)}\n\n${MESSAGES.dayDone}`);
         return;
       }
       case "edit": {
@@ -262,7 +262,7 @@ async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
       }
       case "cancel": {
         await repo.deletePending(link.userId, pending.id);
-        await telegram.editMessageText(chatId, messageId, MESSAGES.cancelled);
+        await telegram.editMessageText(chatId, messageId, `${MESSAGES.cancelled}\n\n${MESSAGES.dayDone}`);
         return;
       }
       case "move": {

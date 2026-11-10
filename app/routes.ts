@@ -5,7 +5,6 @@ export default [
   route("login", "routes/login.tsx"),
   route("signup", "routes/signup.tsx"),
   route("logout", "routes/logout.tsx"),
-  route("onboarding", "routes/onboarding.tsx"),
   route("drawer", "routes/drawer.tsx"),
   route("drawer/consent", "routes/drawer.consent.tsx"),
   route("drawer/settings", "routes/drawer.settings.tsx"),

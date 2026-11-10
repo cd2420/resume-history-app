@@ -18,7 +18,7 @@ async function catchThrown(promise: Promise<unknown>) {
 
 describe("requireUser", () => {
   test("redirects to /login when the request has no session cookie", async () => {
-    const request = new Request("http://localhost/onboarding");
+    const request = new Request("http://localhost/drawer");
 
     const thrown = await catchThrown(requireUser(request));
 
@@ -28,7 +28,7 @@ describe("requireUser", () => {
   });
 
   test("redirects to /login when the session cookie is garbage", async () => {
-    const request = new Request("http://localhost/onboarding", {
+    const request = new Request("http://localhost/drawer", {
       headers: { Cookie: "sb-example-auth-token=not-a-real-token" },
     });
 

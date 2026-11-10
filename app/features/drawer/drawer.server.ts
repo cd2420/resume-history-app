@@ -1,7 +1,7 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
 import { CHANGE_CATEGORIES, type ChangeCategory } from "./generalize.server";
-import { DAILY_SESSION_LIMIT } from "./limits";
+import { parseRole } from "./roles";
 import type { DrawerRepo, LinkResult, OpenSessionOutcome, Pending, RecordSession, SessionStep } from "./repo";
 
 export class DrawerDbError extends Error {
@@ -139,6 +139,12 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
     async markBlocked(userId) {
       const { error } = await admin.from("telegram_links").update({ blocked_at: nowIso() }).eq("user_id", userId);
       if (error) fail("markBlocked", error);
+    },
+
+    async getRole(userId) {
+      const { data, error } = await admin.from("profiles").select("role").eq("user_id", userId).maybeSingle();
+      if (error) fail("getRole", error);
+      return parseRole(data?.role);
     },
 
     async getCurrentProject(userId) {
@@ -312,7 +318,7 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
         p_kst_date: input.kstDate,
         p_source: input.source,
         p_expires_at: input.expiresAt.toISOString(),
-        p_daily_limit: DAILY_SESSION_LIMIT,
+        p_daily_limit: input.dailyLimit,
       });
       if (error) fail("openSession", error);
       const row = (data as { outcome: OpenSessionOutcome; session_id: string | null }[])[0];
