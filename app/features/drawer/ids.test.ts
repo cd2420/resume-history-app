@@ -21,6 +21,8 @@ describe("ids", () => {
       { kind: "back", pendingId: P },
       { kind: "pick", pendingId: P, projectId: Q },
       { kind: "current", projectId: Q },
+      { kind: "record" },
+      { kind: "skip", sessionId: P },
     ] as const;
     for (const action of actions) {
       const data = callbackData(action);

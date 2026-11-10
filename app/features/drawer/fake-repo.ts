@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import type { DrawerRepo, NotificationStatus, Pending, ProjectSummary } from "./repo";
+import { DAILY_SESSION_LIMIT } from "./limits";
+import type { DrawerRepo, NotificationStatus, Pending, ProjectSummary, RecordSession, SessionPatch } from "./repo";
+
+export interface FakeSession extends RecordSession {
+  status: "open" | "carded" | "cancelled";
+  source: "notify" | "user";
+  expiresAt: Date;
+}
 
 interface Link {
   userId: string;
@@ -30,6 +37,7 @@ export class FakeDrawerRepo implements DrawerRepo {
   pendings: Pending[] = [];
   logs: FakeLog[] = [];
   notifications = new Map<string, NotificationStatus | "sending">();
+  sessions: FakeSession[] = [];
 
   addProject(userId: string, title: string): ProjectSummary {
     const project = { id: randomUUID(), title, userId, shelfId: null, createdAt: this.projects.length };
@@ -151,9 +159,52 @@ export class FakeDrawerRepo implements DrawerRepo {
     return true;
   }
 
+  async openSession(userId: string, input: Parameters<DrawerRepo["openSession"]>[1]) {
+    const now = new Date();
+    for (const s of this.sessions) {
+      if (s.userId === userId && s.status === "open" && s.expiresAt <= now) s.status = "cancelled";
+    }
+    const open = this.sessions.find((s) => s.userId === userId && s.status === "open");
+    if (open) return { outcome: "exists" as const, session: { ...open } };
+    if (this.sessions.filter((s) => s.userId === userId && s.kstDate === input.kstDate).length >= DAILY_SESSION_LIMIT) {
+      return { outcome: "limit" as const, session: null };
+    }
+    if (!this.owned(userId, input.projectId)) throw new Error("foreign project");
+    const session: FakeSession = {
+      id: randomUUID(),
+      userId,
+      projectId: input.projectId,
+      chatId: input.chatId,
+      kstDate: input.kstDate,
+      source: input.source,
+      expiresAt: input.expiresAt,
+      status: "open",
+      step: 1,
+      task: null,
+      role: null,
+      result: null,
+      changes: [],
+      tags: [],
+      aiCalls: 0,
+    };
+    this.sessions.push(session);
+    return { outcome: "opened" as const, session: { ...session } };
+  }
+
+  async getOpenSession(userId: string, now: Date) {
+    const s = this.sessions.find((x) => x.userId === userId && x.status === "open" && x.expiresAt > now);
+    return s ? { ...s } : null;
+  }
+
+  async updateSession(userId: string, sessionId: string, patch: SessionPatch) {
+    const s = this.sessions.find((x) => x.id === sessionId && x.userId === userId);
+    if (s) Object.assign(s, patch);
+  }
+
   async listDueNotifications(hour: number, kstDate: string) {
     return this.links
       .filter((l) => !l.blocked && this.notifyHour.get(l.userId) === hour)
+      .filter((l) => !this.sessions.some((s) => s.userId === l.userId && s.kstDate === kstDate && s.status === "open"))
       .filter((l) => !this.logs.some((log) => log.userId === l.userId && log.logDate === kstDate))
       .filter((l) => !this.notifications.has(`${l.userId}:${kstDate}`))
       .map((l) => ({ userId: l.userId, chatId: l.chatId }));

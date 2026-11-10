@@ -22,6 +22,7 @@ beforeEach(() => {
   for (const [userId, tg] of [[A, 1], [B, 2], [C, 3]] as const) {
     repo.links.push({ userId, telegramUserId: tg, chatId: tg, blocked: false });
     repo.notifyHour.set(userId, 21);
+    repo.currentProject.set(userId, repo.addProject(userId, "책").id);
   }
 });
 
@@ -100,3 +101,36 @@ describe("runHourlyNotify", () => {
     expect(sleep).toHaveBeenCalledWith(40);
   });
 });
+
+describe("hourly prompt sessions", () => {
+  test("opens a recording session for each user it asks", async () => {
+    await run();
+
+    expect(repo.sessions.map((s) => [s.userId, s.source, s.step])).toEqual([
+      [A, "notify", 1],
+      [B, "notify", 1],
+      [C, "notify", 1],
+    ]);
+  });
+
+  test("skips a user who is in the middle of a session", async () => {
+    await repo.openSession(A, {
+      projectId: (await repo.getCurrentProject(A))!.id,
+      chatId: 1,
+      kstDate: "2026-11-10",
+      source: "user",
+      expiresAt: new Date("2026-11-10T15:00:00Z"),
+    });
+
+    expect((await run()).due).toBe(2);
+  });
+
+  test("a user without a book is told to make one", async () => {
+    repo.currentProject.delete(A);
+
+    await run();
+
+    expect(telegram.sent.find((m) => m.chatId === 1)?.text).toContain("/project");
+  });
+});
+

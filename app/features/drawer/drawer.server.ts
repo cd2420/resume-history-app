@@ -1,7 +1,8 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 
 import { CHANGE_CATEGORIES, type ChangeCategory } from "./generalize.server";
-import type { DrawerRepo, LinkResult, Pending } from "./repo";
+import { DAILY_SESSION_LIMIT } from "./limits";
+import type { DrawerRepo, LinkResult, OpenSessionOutcome, Pending, RecordSession, SessionStep } from "./repo";
 
 export class DrawerDbError extends Error {
   constructor(
@@ -49,6 +50,43 @@ function toPending(row: PendingRow): Pending {
     state: row.state,
     chatId: Number(row.chat_id),
     cardMessageId: row.card_message_id === null ? null : Number(row.card_message_id),
+  };
+}
+
+interface SessionRow {
+  id: string;
+  user_id: string;
+  project_id: string;
+  chat_id: number;
+  kst_date: string;
+  step: number;
+  task: string | null;
+  role: string | null;
+  result: string | null;
+  change_categories: string[];
+  tags: string[];
+  ai_calls: number;
+}
+
+const SESSION_COLUMNS =
+  "id, user_id, project_id, chat_id, kst_date, step, task, role, result, change_categories, tags, ai_calls";
+
+function toSession(row: SessionRow): RecordSession {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    projectId: row.project_id,
+    chatId: Number(row.chat_id),
+    kstDate: row.kst_date,
+    step: row.step as SessionStep,
+    task: row.task,
+    role: row.role,
+    result: row.result,
+    changes: row.change_categories.filter((c): c is ChangeCategory =>
+      (CHANGE_CATEGORIES as readonly string[]).includes(c),
+    ),
+    tags: row.tags ?? [],
+    aiCalls: row.ai_calls,
   };
 }
 
@@ -256,6 +294,55 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
       });
       if (error) fail("savePendingAsLog", error);
       return typeof data === "string";
+    },
+
+    async openSession(userId, input) {
+      const { data, error } = await admin.rpc("drawer_open_session", {
+        p_user_id: userId,
+        p_project_id: input.projectId,
+        p_chat_id: input.chatId,
+        p_kst_date: input.kstDate,
+        p_source: input.source,
+        p_expires_at: input.expiresAt.toISOString(),
+        p_daily_limit: DAILY_SESSION_LIMIT,
+      });
+      if (error) fail("openSession", error);
+      const row = (data as { outcome: OpenSessionOutcome; session_id: string | null }[])[0];
+      if (!row?.session_id) return { outcome: row?.outcome ?? "limit", session: null };
+      const session = await admin
+        .from("record_sessions")
+        .select(SESSION_COLUMNS)
+        .eq("user_id", userId)
+        .eq("id", row.session_id)
+        .single<SessionRow>();
+      if (session.error) fail("openSession.read", session.error);
+      return { outcome: row.outcome, session: toSession(session.data) };
+    },
+
+    async getOpenSession(userId, now) {
+      const { data, error } = await admin
+        .from("record_sessions")
+        .select(SESSION_COLUMNS)
+        .eq("user_id", userId)
+        .eq("status", "open")
+        .gt("expires_at", now.toISOString())
+        .maybeSingle<SessionRow>();
+      if (error) fail("getOpenSession", error);
+      return data ? toSession(data) : null;
+    },
+
+    async updateSession(userId, sessionId, patch) {
+      const row: Record<string, unknown> = {};
+      if (patch.step !== undefined) row.step = patch.step;
+      if (patch.task !== undefined) row.task = patch.task;
+      if (patch.role !== undefined) row.role = patch.role;
+      if (patch.result !== undefined) row.result = patch.result;
+      if (patch.changes !== undefined) row.change_categories = patch.changes;
+      if (patch.tags !== undefined) row.tags = patch.tags;
+      if (patch.aiCalls !== undefined) row.ai_calls = patch.aiCalls;
+      if (patch.status !== undefined) row.status = patch.status;
+      const { error } = await admin.from("record_sessions").update(row).eq("user_id", userId).eq("id", sessionId);
+      if (error) fail("updateSession", error);
     },
 
     async listDueNotifications(hour, kstDate) {

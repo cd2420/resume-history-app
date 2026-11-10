@@ -15,6 +15,8 @@ export function decodeId(value: string): string | null {
 }
 
 export type CallbackAction =
+  | { kind: "record" }
+  | { kind: "skip"; sessionId: string }
   | { kind: "save" | "edit" | "cancel" | "move" | "back"; pendingId: string }
   | { kind: "pick"; pendingId: string; projectId: string }
   | { kind: "current"; projectId: string };
@@ -33,14 +35,19 @@ export function callbackData(action: CallbackAction): string {
       return `p:${encodeId(action.pendingId)}:${encodeId(action.projectId)}`;
     case "current":
       return `u:${encodeId(action.projectId)}`;
+    case "record":
+      return "r";
+    case "skip":
+      return `k:${encodeId(action.sessionId)}`;
     default: {
       const code = Object.keys(SINGLE).find((key) => SINGLE[key] === action.kind)!;
-      return `${code}:${encodeId(action.pendingId)}`;
+      return `${code}:${encodeId((action as { pendingId: string }).pendingId)}`;
     }
   }
 }
 
 export function parseCallbackData(data: string): CallbackAction | null {
+  if (data === "r") return { kind: "record" };
   const [code, first, second, ...rest] = data.split(":");
   if (rest.length > 0 || !first) return null;
   if (code === "p") {
@@ -52,6 +59,10 @@ export function parseCallbackData(data: string): CallbackAction | null {
   if (code === "u") {
     const projectId = decodeId(first);
     return projectId ? { kind: "current", projectId } : null;
+  }
+  if (code === "k") {
+    const sessionId = decodeId(first);
+    return sessionId ? { kind: "skip", sessionId } : null;
   }
   const kind = SINGLE[code];
   const pendingId = decodeId(first);

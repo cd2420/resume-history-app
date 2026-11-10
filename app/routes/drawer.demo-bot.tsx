@@ -206,7 +206,7 @@ export default function DemoBot({ loaderData, actionData }: Route.ComponentProps
             </p>
           )}
           <div className="flex flex-wrap gap-2 text-xs">
-            {["/project", "/help"].map((command) => (
+            {["/record", "/project", "/help"].map((command) => (
               <Form key={command} method="post">
                 <input type="hidden" name="intent" value="send" />
                 <input type="hidden" name="text" value={command} />

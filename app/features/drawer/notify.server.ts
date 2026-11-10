@@ -1,5 +1,7 @@
 import { kstDate, kstHour } from "~/lib/kst";
 import { TelegramError, type TelegramClient } from "~/features/telegram/telegram.server";
+import { MESSAGES } from "./messages";
+import { openRecording } from "./record.server";
 import type { DrawerRepo } from "./repo";
 
 export interface NotifyDeps {
@@ -19,7 +21,8 @@ export interface NotifyResult {
   skipped: number;
 }
 
-export const DAILY_QUESTION = "오늘 한 일, 서랍에 넣어두세요 🗄️\n한두 줄이면 충분해요.";
+/** The hourly prompt: it opens a recording session and asks question 1. */
+export const DAILY_QUESTION = MESSAGES.sessionNotify;
 
 // Telegram FAQ: bulk sends above ~30 messages/second get 429. Stay well under.
 const SEND_INTERVAL_MS = 40;
@@ -44,7 +47,7 @@ export async function runHourlyNotify({ repo, telegram, now, sleep = defaultSlee
       continue;
     }
     try {
-      await telegram.sendMessage(target.chatId, DAILY_QUESTION);
+      await openRecording({ repo, telegram, now: () => at }, target.userId, target.chatId, "notify");
       await repo.setNotificationStatus(target.userId, date, "sent");
       result.sent++;
     } catch (error) {

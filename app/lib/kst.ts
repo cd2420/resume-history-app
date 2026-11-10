@@ -14,3 +14,10 @@ export function kstDate(now: Date): string {
 export function kstHour(now: Date): number {
   return shifted(now).getUTCHours();
 }
+
+/** The next KST midnight after `now` (the end of the current KST day). */
+export function kstNextMidnight(now: Date): Date {
+  const [year, month, day] = kstDate(now).split("-").map(Number);
+  // 00:00 KST on the next day is 15:00 UTC on the current KST day.
+  return new Date(Date.UTC(year, month - 1, day, 15, 0, 0));
+}

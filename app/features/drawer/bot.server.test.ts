@@ -23,13 +23,15 @@ let telegram: ReturnType<typeof createFakeTelegram>;
 let llmCreate: Mock<DrawerLlmClient["responses"]["create"]>;
 let deps: BotDeps;
 let updateId = 1;
+let now = NOW;
 
 beforeEach(() => {
   repo = new FakeDrawerRepo();
   telegram = createFakeTelegram();
   const fake = createFakeDrawerLlm();
   llmCreate = vi.fn(fake.responses.create);
-  deps = { repo, telegram, llm: { responses: { create: llmCreate } }, now: () => NOW, appUrl: APP_URL };
+  now = NOW;
+  deps = { repo, telegram, llm: { responses: { create: llmCreate } }, now: () => now, appUrl: APP_URL };
 });
 
 function text(from: number, value: string): TelegramUpdate {
@@ -60,10 +62,21 @@ function withProject(userId: string, title = "결제 시스템 개편") {
   return project;
 }
 
+/** Presses the button labelled `label` on the most recent message that has it. */
+async function pressLabel(from: number, label: string) {
+  const message = [...telegram.sent].reverse().find((m) => m.keyboard?.flat().some((b) => b.text === label));
+  const button = message?.keyboard?.flat().find((b) => b.text === label);
+  if (!message || !button) throw new Error(`no button ${label}`);
+  await handleUpdate(deps, press(from, button.callback_data, message.messageId));
+}
+
+/** /record -> answer question 1 -> skip 2 and 3 -> the card. */
 async function sendAnswer(from = TG_A) {
+  await handleUpdate(deps, text(from, "/record"));
   await handleUpdate(deps, text(from, RAW));
-  const pending = repo.pendings.at(-1)!;
-  return pending;
+  await pressLabel(from, "건너뛰기");
+  await pressLabel(from, "아직 몰라요");
+  return repo.pendings.at(-1)!;
 }
 
 describe("linking", () => {
@@ -193,12 +206,13 @@ describe("daily answer", () => {
   });
 
   test("no current project -> guide; /project name creates and selects it", async () => {
-    await handleUpdate(deps, text(TG_A, RAW));
+    await handleUpdate(deps, text(TG_A, "/record"));
     expect(lastText()).toBe(MESSAGES.noProject);
-    expect(llmCreate).not.toHaveBeenCalled();
+    expect(repo.sessions).toHaveLength(0);
 
     await handleUpdate(deps, text(TG_A, "/project 결제 시스템 개편"));
     expect(lastText()).toBe(MESSAGES.projectCreated("결제 시스템 개편"));
+    expect(telegram.sent.at(-1)?.keyboard?.flat().map((b) => b.text)).toEqual(["지금 기록하기"]);
     expect((await repo.getCurrentProject(USER_A))?.title).toBe("결제 시스템 개편");
   });
 
@@ -230,15 +244,18 @@ describe("daily answer", () => {
 
   test("over-long answers are refused without calling the model", async () => {
     withProject(USER_A);
+    await handleUpdate(deps, text(TG_A, "/record"));
 
-    await handleUpdate(deps, text(TG_A, "가".repeat(1001)));
+    await handleUpdate(deps, text(TG_A, "가".repeat(301)));
 
-    expect(lastText()).toBe(MESSAGES.tooLong);
+    expect(lastText()).toBe(MESSAGES.answerTooLong);
     expect(llmCreate).not.toHaveBeenCalled();
+    expect(repo.sessions[0].step).toBe(1);
   });
 
   test("a model failure tells the user to retry and stores nothing", async () => {
     withProject(USER_A);
+    await handleUpdate(deps, text(TG_A, "/record"));
     llmCreate.mockResolvedValueOnce(fakeResponse("", { refusal: "no" }));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -246,6 +263,7 @@ describe("daily answer", () => {
 
     expect(lastText()).toBe(MESSAGES.generalizeFailed);
     expect(repo.pendings).toHaveLength(0);
+    expect(repo.sessions[0]).toMatchObject({ step: 1, task: null, aiCalls: 1 });
     expect(JSON.stringify(error.mock.calls)).not.toContain(RAW);
     error.mockRestore();
   });
@@ -282,6 +300,112 @@ describe("daily answer", () => {
     const instructions = llmCreate.mock.calls[0][0].instructions as string;
     expect(instructions).toContain("사용자가 이미 쓰는 태그: Kafka");
     expect(instructions).not.toContain("비밀태그");
+  });
+});
+
+describe("recording sessions", () => {
+  beforeEach(() => {
+    linkUser(USER_A, TG_A);
+    withProject(USER_A);
+  });
+
+  test("messages outside a session never reach the model or the database", async () => {
+    await handleUpdate(deps, text(TG_A, "오늘 점심 뭐 먹지"));
+
+    expect(lastText()).toBe(MESSAGES.outsideSession);
+    expect(telegram.sent.at(-1)?.keyboard?.flat().map((b) => b.text)).toEqual(["지금 기록하기"]);
+    expect(llmCreate).not.toHaveBeenCalled();
+    expect(repo.pendings).toHaveLength(0);
+    expect(repo.sessions).toHaveLength(0);
+  });
+
+  test("the [지금 기록하기] button opens a session and asks question 1", async () => {
+    await handleUpdate(deps, text(TG_A, "아무 말"));
+    await pressLabel(TG_A, "지금 기록하기");
+
+    expect(lastText()).toBe(MESSAGES.sessionUser);
+    expect(repo.sessions[0]).toMatchObject({ status: "open", step: 1, source: "user", kstDate: "2026-11-10" });
+    // 2026-11-10 23:30 KST -> the session closes at 2026-11-11 00:00 KST
+    expect(repo.sessions[0].expiresAt.toISOString()).toBe("2026-11-10T15:00:00.000Z");
+  });
+
+  test("three answers become one card; each answer is generalized once", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    await handleUpdate(deps, text(TG_A, RAW));
+    expect(lastText()).toContain("2/3");
+    await handleUpdate(deps, text(TG_A, "캐시 도입을 제안했어요"));
+    expect(lastText()).toContain("3/3");
+    await handleUpdate(deps, text(TG_A, "응답 시간이 절반으로"));
+
+    const g = FAKE_GENERALIZATION.generalized;
+    expect(repo.pendings[0].generalized).toBe(`${g}\n· 내 역할·이유: ${g}\n· 결과: ${g}`);
+    expect(llmCreate).toHaveBeenCalledTimes(3);
+    expect(repo.sessions[0]).toMatchObject({ status: "carded", aiCalls: 3 });
+    expect(lastText()).toContain("📝 이렇게 서랍에 넣을까요?");
+    expect(JSON.stringify(repo.sessions)).not.toContain(RAW);
+  });
+
+  test("skipping optional questions leaves them out of the log", async () => {
+    const pending = await sendAnswer();
+
+    expect(pending.generalized).toBe(FAKE_GENERALIZATION.generalized);
+    expect(llmCreate).toHaveBeenCalledTimes(1);
+    expect(telegram.sent.some((m) => m.method === "editMessageText" && m.text?.includes(MESSAGES.skipped))).toBe(true);
+  });
+
+  test("question 1 cannot be skipped and a stale skip button does nothing", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    const sessionId = repo.sessions[0].id;
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "skip", sessionId })));
+    expect(repo.sessions[0].step).toBe(1);
+
+    await handleUpdate(deps, text(TG_A, RAW));
+    await pressLabel(TG_A, "건너뛰기");
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "skip", sessionId }))); // pressed again
+    expect(repo.sessions[0].step).toBe(3);
+  });
+
+  test("/record during an open session resumes at the current question", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    await handleUpdate(deps, text(TG_A, RAW));
+    await handleUpdate(deps, text(TG_A, "/record"));
+
+    expect(lastText()).toBe(`${MESSAGES.sessionResume}\n\n2/3 그중 직접 맡거나 결정한 건 뭐고, 왜 그렇게 했나요?\n예) 캐시 도입을 제안했어요. DB 조회가 병목이라서요`);
+    expect(repo.sessions).toHaveLength(1);
+  });
+
+  test("a session closes at KST midnight", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    now = new Date("2026-11-10T15:10:00Z"); // 00:10 KST the next day
+
+    await handleUpdate(deps, text(TG_A, RAW));
+
+    expect(lastText()).toBe(MESSAGES.outsideSession);
+    expect(llmCreate).not.toHaveBeenCalled();
+  });
+
+  test("at most three sessions a day", async () => {
+    for (let i = 0; i < 3; i++) {
+      const pending = await sendAnswer();
+      await handleUpdate(deps, press(TG_A, callbackData({ kind: "cancel", pendingId: pending.id })));
+    }
+    await handleUpdate(deps, text(TG_A, "/record"));
+
+    expect(lastText()).toBe(MESSAGES.dailyLimit);
+    expect(repo.sessions).toHaveLength(3);
+  });
+
+  test("a session stops calling the model after five attempts", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    llmCreate.mockResolvedValue(fakeResponse("not json"));
+    await handleUpdate(deps, text(TG_A, "/record"));
+
+    for (let i = 0; i < 6; i++) await handleUpdate(deps, text(TG_A, RAW));
+
+    expect(llmCreate).toHaveBeenCalledTimes(5);
+    expect(lastText()).toBe(MESSAGES.aiLimit);
+    expect(repo.sessions[0].status).toBe("cancelled");
+    error.mockRestore();
   });
 });
 

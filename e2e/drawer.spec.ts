@@ -56,6 +56,13 @@ function pressButton(request: APIRequestContext, data: string) {
   });
 }
 
+async function pressLabel(request: APIRequestContext, label: string) {
+  const message = [...readOutbox()].reverse().find((m) => m.keyboard?.flat().some((b) => b.text === label));
+  const button = message?.keyboard?.flat().find((b) => b.text === label);
+  expect(button, `button ${label}`).toBeTruthy();
+  await pressButton(request, button!.callback_data);
+}
+
 async function login(page: Page) {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
@@ -124,8 +131,13 @@ test.describe("with the E2E account", () => {
     await sendText(request, `/project ${projectTitle}`);
     expect(readOutbox().at(-1)?.text).toContain(projectTitle);
 
+    // Answers only count inside a recording session: open one, answer 1, skip 2 and 3.
+    await sendText(request, "/record");
+    expect(readOutbox().at(-1)?.text).toContain("1/3 오늘 무엇을 했나요?");
     await sendText(request, "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임");
-    const card = [...readOutbox()].reverse().find((m) => m.method === "sendMessage" && m.keyboard);
+    await pressLabel(request, "건너뛰기");
+    await pressLabel(request, "아직 몰라요");
+    const card = [...readOutbox()].reverse().find((m) => m.method === "sendMessage" && m.keyboard?.flat().some((b) => b.text === "저장"));
     expect(card?.text).toContain(FAKE_GENERALIZED);
     expect(card?.text).toContain(`[${projectTitle}]`);
     expect(card?.text).toContain("태그: #Redis");

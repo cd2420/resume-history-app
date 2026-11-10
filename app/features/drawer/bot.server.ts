@@ -1,16 +1,15 @@
 import { kstDate } from "~/lib/kst";
 import type { InlineKeyboard, TelegramClient } from "~/features/telegram/telegram.server";
 import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from "~/features/telegram/update-schema";
-import {
-  type ChangeCategory,
-  type DrawerLlmClient,
-  generalize,
-  GeneralizeError,
-} from "./generalize.server";
+import type { DrawerLlmClient } from "./generalize.server";
 import { callbackData, parseCallbackData } from "./ids";
 import { hashLinkToken, isLinkTokenShape } from "./link-token.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "./limits";
+import { cardKeyboard, MESSAGES, QUESTIONS, recordButton, renderCard } from "./messages";
+import { answerQuestion, openRecording, skipQuestion } from "./record.server";
 import type { DrawerRepo, Pending, ProjectSummary, TelegramLink } from "./repo";
+
+export { MESSAGES, renderCard };
 
 export interface BotDeps {
   repo: DrawerRepo;
@@ -21,67 +20,6 @@ export interface BotDeps {
 }
 
 const PROJECT_LIST_LIMIT = 20;
-
-const CHANGE_LABELS: Record<ChangeCategory, string> = {
-  client_name: "고객사명",
-  internal_system: "내부 시스템명",
-  absolute_number: "절대 수치",
-  person_name: "사람 이름",
-  other: "기타 고유 정보",
-};
-
-export const MESSAGES = {
-  notLinked: (appUrl: string) =>
-    `먼저 웹에서 가입하고 텔레그램을 연결해 주세요.\n${appUrl}/drawer/settings`,
-  linked: (appUrl: string) =>
-    `연결됐어요! 🗄️\n알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer/settings\n\n` +
-    "먼저 지금 하고 있는 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
-  linkInvalid: (appUrl: string) =>
-    `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
-  telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
-  help: (appUrl: string) =>
-    "이력서랍 사용법\n" +
-    "• 오늘 한 일을 한두 줄로 보내면 기밀을 가린 카드가 와요. [저장]을 누르면 서랍에 들어가요.\n" +
-    "• /project — 현재 프로젝트 바꾸기\n" +
-    "• /project 이름 — 새 프로젝트를 만들고 현재 프로젝트로 지정\n" +
-    `• 책장에서 기록 찾기·수정: ${appUrl}/drawer`,
-  noProject: "먼저 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
-  projectTitleInvalid: `프로젝트 이름은 1~${MAX_PROJECT_TITLE}자로 보내 주세요.`,
-  projectCreated: (title: string) => `프로젝트를 만들었어요: ${title}\n이제 오늘 한 일을 보내 주세요.`,
-  projectList: "현재 프로젝트를 골라 주세요.\n새 프로젝트는 /project 이름 으로 만들 수 있어요.",
-  currentProjectSet: (title: string) => `현재 프로젝트: ${title}`,
-  tooLong: `${MAX_LOG_LENGTH}자 이내로 보내 주세요.`,
-  generalizeFailed: "지금은 정리하지 못했어요. 잠시 뒤 다시 보내 주세요.",
-  editPrompt:
-    "고친 내용을 보내 주세요. 보낸 글은 그대로 저장돼요.\n" +
-    "⚠️ 고객사명·내부 시스템명·절대 수치는 빼고 써 주세요.",
-  saved: (project: string, content: string) => `서랍에 넣었어요 ✅ [${project}]\n\n${content}`,
-  cancelled: "취소했어요. 아무것도 저장하지 않았어요.",
-  expired: "만료된 카드예요. 다시 보내 주세요.",
-  pickProject: "어느 프로젝트에 넣을까요?",
-} as const;
-
-export function renderCard(
-  pending: Pick<Pending, "generalized" | "changes" | "tags">,
-  project: ProjectSummary | null,
-): string {
-  const changed = pending.changes.length
-    ? `가린 정보: ${pending.changes.map((c) => CHANGE_LABELS[c]).join(", ")}`
-    : "가린 정보 없음";
-  const tags = pending.tags.length ? `\n태그: ${pending.tags.map((t) => `#${t}`).join(" ")}` : "";
-  return `📝 이렇게 서랍에 넣을까요?\n[${project?.title ?? "프로젝트 없음"}]\n\n${pending.generalized}\n\n${changed}${tags}`;
-}
-
-function cardKeyboard(pendingId: string): InlineKeyboard {
-  return [
-    [
-      { text: "저장", callback_data: callbackData({ kind: "save", pendingId }) },
-      { text: "수정", callback_data: callbackData({ kind: "edit", pendingId }) },
-      { text: "취소", callback_data: callbackData({ kind: "cancel", pendingId }) },
-    ],
-    [{ text: "프로젝트 변경", callback_data: callbackData({ kind: "move", pendingId }) }],
-  ];
-}
 
 function projectButtonText(project: ProjectSummary, current: boolean) {
   const title = project.title.length > 40 ? `${project.title.slice(0, 39)}…` : project.title;
@@ -135,6 +73,10 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
     await (argText ? createProject(deps, link, chatId, argText) : listProjects(deps, link, chatId));
     return;
   }
+  if (command === "/record") {
+    await openRecording(deps, link.userId, chatId, "user");
+    return;
+  }
   if (command.startsWith("/")) {
     await telegram.sendMessage(chatId, MESSAGES.help(appUrl));
     return;
@@ -150,7 +92,14 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
     await saveRewrite(deps, link, editing, chatId, text);
     return;
   }
-  await proposeCard(deps, link, chatId, text);
+
+  // Only answers inside a recording session reach the AI; anything else gets a pointer.
+  const session = await repo.getOpenSession(link.userId, deps.now());
+  if (!session) {
+    await telegram.sendMessage(chatId, MESSAGES.outsideSession, recordButton());
+    return;
+  }
+  await answerQuestion(deps, session, text);
 }
 
 async function createProject(deps: BotDeps, link: TelegramLink, chatId: number, title: string) {
@@ -160,7 +109,7 @@ async function createProject(deps: BotDeps, link: TelegramLink, chatId: number, 
   }
   const project = await deps.repo.createProject(link.userId, title);
   await deps.repo.setCurrentProject(link.userId, project.id);
-  await deps.telegram.sendMessage(chatId, MESSAGES.projectCreated(project.title));
+  await deps.telegram.sendMessage(chatId, MESSAGES.projectCreated(project.title), recordButton());
 }
 
 async function listProjects(deps: BotDeps, link: TelegramLink, chatId: number) {
@@ -192,35 +141,6 @@ async function saveRewrite(deps: BotDeps, link: TelegramLink, pending: Pending, 
   await deps.telegram.sendMessage(chatId, MESSAGES.saved(project?.title ?? "", text));
 }
 
-// `text` is the raw answer: it goes to the LLM once and is never stored or logged.
-async function proposeCard(deps: BotDeps, link: TelegramLink, chatId: number, text: string) {
-  const project = await deps.repo.getCurrentProject(link.userId);
-  if (!project) {
-    await deps.telegram.sendMessage(chatId, MESSAGES.noProject);
-    return;
-  }
-
-  let result;
-  try {
-    result = await generalize(deps.llm, text, await deps.repo.listTags(link.userId));
-  } catch (error) {
-    if (!(error instanceof GeneralizeError)) throw error;
-    console.error("generalize failed", error.reason);
-    await deps.telegram.sendMessage(chatId, error.reason === "too_long" ? MESSAGES.tooLong : MESSAGES.generalizeFailed);
-    return;
-  }
-
-  const pending = await deps.repo.createPending(link.userId, {
-    projectId: project.id,
-    generalized: result.generalized,
-    changes: result.changes,
-    tags: result.tags,
-    chatId,
-  });
-  const sent = await deps.telegram.sendMessage(chatId, renderCard(pending, project), cardKeyboard(pending.id));
-  await deps.repo.setCardMessage(link.userId, pending.id, sent.messageId);
-}
-
 async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
   const { repo, telegram, appUrl } = deps;
   let toast: string | undefined;
@@ -236,6 +156,22 @@ async function handleCallback(deps: BotDeps, query: TelegramCallbackQuery) {
     if (!action || !message) return;
     const chatId = message.chat.id;
     const messageId = message.message_id;
+
+    if (action.kind === "record") {
+      await openRecording(deps, link.userId, chatId, "user");
+      return;
+    }
+
+    if (action.kind === "skip") {
+      const session = await repo.getOpenSession(link.userId, deps.now());
+      if (!session || session.id !== action.sessionId || session.step === 1) {
+        toast = "이미 지나간 질문이에요.";
+        return;
+      }
+      await telegram.editMessageText(chatId, messageId, `${QUESTIONS[session.step]}\n\n${MESSAGES.skipped}`);
+      await skipQuestion(deps, session);
+      return;
+    }
 
     if (action.kind === "current") {
       const ok = await repo.setCurrentProject(link.userId, action.projectId);

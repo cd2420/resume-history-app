@@ -45,6 +45,21 @@ async function sendToBot(page: Page, text: string) {
   await settled(page);
 }
 
+async function pressBot(page: Page, label: string) {
+  await page.getByRole("button", { name: label, exact: true }).last().click();
+  await settled(page);
+}
+
+/** Answers question 1 and skips 2 and 3, which leaves the confirmation card. */
+async function answerOneQuestion(page: Page, text: string) {
+  await expect(page.getByTestId("bot-message").last()).toContainText("1/3 오늘 무엇을 했나요?");
+  await sendToBot(page, text);
+  await expect(page.getByTestId("bot-message").last()).toContainText("2/3");
+  await pressBot(page, "건너뛰기");
+  await expect(page.getByTestId("bot-message").last()).toContainText("3/3");
+  await pressBot(page, "아직 몰라요");
+}
+
 test("demo: link the bot, shelve a new book, find a log by tag, then edit and delete it", async ({ page }) => {
   await signInFresh(page);
 
@@ -66,7 +81,13 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
   // A book created from the bot becomes current; the answer card carries tags.
   await sendToBot(page, "/project 오픈소스 기여");
   await expect(page.getByTestId("bot-message").last()).toContainText("프로젝트를 만들었어요: 오픈소스 기여");
-  await sendToBot(page, "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임");
+
+  // Outside a recording session, chat goes nowhere near the AI.
+  await sendToBot(page, "오늘 점심 뭐 먹지");
+  await expect(page.getByTestId("bot-message").last()).toContainText("지금은 기록 시간이 아니에요");
+
+  await pressBot(page, "지금 기록하기");
+  await answerOneQuestion(page, "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임");
   const card = page.getByTestId("bot-message").last();
   await expect(card).toContainText("[오픈소스 기여]");
   await expect(card).toContainText("태그: #Redis #캐시 #성능 개선");
@@ -152,9 +173,8 @@ test("demo: the hourly prompt is skipped once today is logged", async ({ page })
   await page.getByRole("button", { name: /21:00 알림 시뮬레이션/ }).click();
   await expect(page.getByTestId("bot-message").last()).toContainText("오늘 한 일, 서랍에 넣어두세요");
 
-  await sendToBot(page, "오늘은 장애 회고 문서를 정리함");
-  await page.getByRole("button", { name: "저장", exact: true }).click();
-  await settled(page);
+  await answerOneQuestion(page, "오늘은 장애 회고 문서를 정리함");
+  await pressBot(page, "저장");
 
   await page.getByRole("button", { name: /21:00 알림 시뮬레이션/ }).click();
   await expect(page.getByTestId("transcript")).toContainText("알림 대상이 아니에요");

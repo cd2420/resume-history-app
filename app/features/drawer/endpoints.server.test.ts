@@ -54,7 +54,6 @@ describe("processTelegramWebhook", () => {
     const second = await processTelegramWebhook(webhook(UPDATE), SECRET, () => deps);
 
     expect([first.status, second.status]).toEqual([200, 200]);
-    expect(repo.pendings).toHaveLength(1);
     expect(telegram.sent.filter((m) => m.method === "sendMessage")).toHaveLength(1);
   });
 
@@ -67,7 +66,7 @@ describe("processTelegramWebhook", () => {
 
   test("a handler failure is logged without the message text and still answers 200", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(repo, "getCurrentProject").mockRejectedValueOnce(Object.assign(new Error("db"), { name: "DrawerDbError", code: "XX000" }));
+    vi.spyOn(repo, "getOpenSession").mockRejectedValueOnce(Object.assign(new Error("db"), { name: "DrawerDbError", code: "XX000" }));
 
     const response = await processTelegramWebhook(webhook(UPDATE), SECRET, () => deps);
 

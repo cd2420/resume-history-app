@@ -221,6 +221,17 @@ npm run build
 
 플랜과 달라진 점: 웹용 데이터 함수는 `drawer-web.server.ts`로 분리, 공용 상수는 `limits.ts`, 테스트용 `fake-repo.ts`·`fake-telegram.ts` 추가, webhook·cron 처리 로직은 `endpoints.server.ts`로 분리. 딥링크 토큰 만료는 DB 시계 차이를 고려해 9분.
 
+## M1 보강: 기록 세션과 질문 3개 (2026-11-10 사용성 점검 후)
+| 항목 | 결정·구현 |
+|---|---|
+| 세션 | `record_sessions` 테이블 + `drawer_open_session` RPC. 정각 알림·`/record`·[지금 기록하기]로 열림, 저장·취소·KST 자정에 닫힘. 사용자당 열린 세션 1개(부분 unique 인덱스) |
+| 세션 밖 | AI 미호출·미저장, 안내 + [지금 기록하기] |
+| 질문 | 고정 문구 3개(`messages.ts`), 1번 필수, 2번 [건너뛰기], 3번 [아직 몰라요] |
+| 처리 | 답마다 즉시 일반화해 회차별 저장(원문 저장 0), 마지막에 하나의 카드(`composeLog`) |
+| 상한 | 하루 세션 3회, 세션당 AI 5회(실패 포함), 답 300자 |
+| 정각 알림 | 세션을 열고 질문 1을 보냄. 진행 중인 세션이 있으면 알림 생략 |
+| 검증 | 단위 테스트 131개, 로컬 DB 검사 62개, 데모 E2E 3개 |
+
 ## Acceptance
 - [ ] All tasks complete
 - [ ] Validation passes

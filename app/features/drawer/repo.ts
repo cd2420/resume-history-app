@@ -27,6 +27,30 @@ export interface Pending {
   cardMessageId: number | null;
 }
 
+export type SessionStep = 1 | 2 | 3;
+
+/** One recording session: three questions, each answer stored already generalized. */
+export interface RecordSession {
+  id: string;
+  userId: string;
+  projectId: string;
+  chatId: number;
+  kstDate: string;
+  step: SessionStep;
+  task: string | null;
+  role: string | null;
+  result: string | null;
+  changes: ChangeCategory[];
+  tags: string[];
+  aiCalls: number;
+}
+
+export type SessionPatch = Partial<Pick<RecordSession, "step" | "task" | "role" | "result" | "changes" | "tags" | "aiCalls">> & {
+  status?: "carded" | "cancelled";
+};
+
+export type OpenSessionOutcome = "opened" | "exists" | "limit";
+
 export type LinkResult = "linked" | "invalid" | "telegram_taken";
 export type NotificationStatus = "sent" | "failed" | "blocked";
 
@@ -68,6 +92,15 @@ export interface DrawerRepo {
   deletePending(userId: string, pendingId: string): Promise<void>;
   /** Atomically turns the card into a daily log. Returns false if the card is gone. */
   savePendingAsLog(userId: string, pendingId: string, content: string, edited: boolean, logDate: string): Promise<boolean>;
+
+  /** Closes an expired open session, reuses an open one, enforces the daily limit. */
+  openSession(
+    userId: string,
+    input: { projectId: string; chatId: number; kstDate: string; source: "notify" | "user"; expiresAt: Date },
+  ): Promise<{ outcome: OpenSessionOutcome; session: RecordSession | null }>;
+  /** The user's open, unexpired session, or null. */
+  getOpenSession(userId: string, now: Date): Promise<RecordSession | null>;
+  updateSession(userId: string, sessionId: string, patch: SessionPatch): Promise<void>;
 
   listDueNotifications(hour: number, kstDate: string): Promise<DueNotification[]>;
   /** Inserts today's notification row. Returns false if one already exists. */
