@@ -6,6 +6,7 @@ import {
   type Shelf,
   sortBooks,
 } from "~/features/drawer/bookshelf";
+import type { ConsentTerm } from "~/features/drawer/consent";
 import type { DrawerWebStore } from "~/features/drawer/drawer-web.server";
 import { FakeDrawerRepo } from "~/features/drawer/fake-repo";
 import { createLinkToken } from "~/features/drawer/link-token.server";
@@ -13,6 +14,22 @@ import { normalizeTags, topTags } from "~/features/drawer/tags";
 import type { ProjectDraft } from "~/features/interview/schema";
 import { createFakeTelegram, type SentMessage } from "~/features/telegram/fake-telegram";
 import type { InlineKeyboard } from "~/features/telegram/telegram.server";
+
+// Demo stand-in for public.consent_terms (production reads the text from the database).
+const DEMO_CONSENT_TERMS: ConsentTerm[] = [
+  {
+    kind: "privacy",
+    version: "demo",
+    title: "[필수] 개인정보 수집·이용",
+    items: ["데모 모드에서는 입력한 내용이 메모리에만 있고 서버를 다시 켜면 사라져요."],
+  },
+  {
+    kind: "overseas_transfer",
+    version: "demo",
+    title: "[필수] 개인정보 국외 이전",
+    items: ["데모 모드에서는 OpenAI로 보내지 않고 가짜 일반화를 써요."],
+  },
+];
 
 export const DEMO_USER_ID = "00000000-0000-4000-8000-00000000de00";
 export const DEMO_TELEGRAM_USER_ID = 700_000_001;
@@ -231,6 +248,7 @@ export class DemoStore extends FakeDrawerRepo {
           .map((l) => ({ id: l.id!, content: l.content })),
       listTags: async () => this.tagsOf(userId),
 
+      getConsentTerms: async () => DEMO_CONSENT_TERMS,
       hasRequiredConsents: async () => this.consents.has(userId),
       recordConsents: async () => {
         this.consents.add(userId);

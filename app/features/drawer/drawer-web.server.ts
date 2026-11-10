@@ -1,11 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { type BookshelfStore, createSupabaseBookshelf } from "./bookshelf.server";
+import { type ConsentTerm, currentTerms, hasConsentedTo } from "./consent";
 import { createLinkToken, LINK_TOKEN_TTL_MS } from "./link-token.server";
 
-// Bump when the consent text changes; users re-consent to the new version.
-export const CONSENT_VERSION = "2026-11-10";
-const REQUIRED_CONSENTS = ["privacy", "overseas_transfer"] as const;
 const LOG_LIMIT = 300;
 
 export class DrawerWebError extends Error {
@@ -60,21 +58,29 @@ export interface DrawerOverview {
 // All functions below use the user's session client, so RLS scopes every row to them.
 // userId filters duplicate the policy for query plans and as a second guard.
 
-export async function hasRequiredConsents(supabase: SupabaseClient, userId: string): Promise<boolean> {
+/** The current terms: latest published row per kind (RLS hides unpublished rows). */
+export async function getConsentTerms(supabase: SupabaseClient): Promise<ConsentTerm[]> {
   const rows = check(
-    "hasRequiredConsents",
-    await supabase.from("consents").select("kind").eq("user_id", userId).eq("version", CONSENT_VERSION),
+    "getConsentTerms",
+    await supabase.from("consent_terms").select("kind, version, title, items, published_at"),
   );
-  const kinds = new Set(rows.map((row) => row.kind));
-  return REQUIRED_CONSENTS.every((kind) => kinds.has(kind));
+  return currentTerms(rows.map(({ published_at, ...term }) => ({ ...term, publishedAt: published_at })));
 }
 
-export async function recordConsents(supabase: SupabaseClient, userId: string): Promise<void> {
+export async function hasRequiredConsents(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const [terms, consents] = await Promise.all([
+    getConsentTerms(supabase),
+    supabase.from("consents").select("kind, version").eq("user_id", userId),
+  ]);
+  return hasConsentedTo(terms, check("hasRequiredConsents", consents));
+}
+
+export async function recordConsents(supabase: SupabaseClient, userId: string, terms: ConsentTerm[]): Promise<void> {
   checkWrite(
     "recordConsents",
     await supabase
       .from("consents")
-      .insert(REQUIRED_CONSENTS.map((kind) => ({ user_id: userId, kind, version: CONSENT_VERSION }))),
+      .insert(terms.map((term) => ({ user_id: userId, kind: term.kind, version: term.version }))),
   );
 }
 
@@ -167,8 +173,9 @@ export async function deleteLog(supabase: SupabaseClient, userId: string, logId:
 
 /** The /drawer pages' data operations, bound to one signed-in user. */
 export interface DrawerWebStore extends BookshelfStore {
+  getConsentTerms(): Promise<ConsentTerm[]>;
   hasRequiredConsents(): Promise<boolean>;
-  recordConsents(): Promise<void>;
+  recordConsents(terms: ConsentTerm[]): Promise<void>;
   getOverview(): Promise<DrawerOverview>;
   issueLinkToken(): Promise<string>;
   unlinkTelegram(): Promise<void>;
@@ -183,8 +190,9 @@ export interface DrawerWebStore extends BookshelfStore {
 export function createSupabaseWebStore(supabase: SupabaseClient, userId: string): DrawerWebStore {
   return {
     ...createSupabaseBookshelf(supabase, userId),
+    getConsentTerms: () => getConsentTerms(supabase),
     hasRequiredConsents: () => hasRequiredConsents(supabase, userId),
-    recordConsents: () => recordConsents(supabase, userId),
+    recordConsents: (terms) => recordConsents(supabase, userId, terms),
     getOverview: () => getDrawerOverview(supabase, userId),
     issueLinkToken: () => issueLinkToken(supabase, userId),
     unlinkTelegram: () => unlinkTelegram(supabase, userId),
