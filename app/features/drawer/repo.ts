@@ -1,0 +1,73 @@
+// Storage contract for the Telegram bot and the hourly notifier. Every method that reads
+// or writes user data takes the owning userId, which the caller must have resolved from
+// telegram_links. The implementation (drawer.server.ts) uses the RLS-bypassing secret key.
+
+import type { ChangeCategory } from "./generalize.server";
+
+export interface TelegramLink {
+  userId: string;
+  chatId: number;
+  blocked: boolean;
+}
+
+export interface ProjectSummary {
+  id: string;
+  title: string;
+}
+
+export interface Pending {
+  id: string;
+  userId: string;
+  projectId: string;
+  generalized: string;
+  changes: ChangeCategory[];
+  state: "confirm" | "edit";
+  chatId: number;
+  cardMessageId: number | null;
+}
+
+export type LinkResult = "linked" | "invalid" | "telegram_taken";
+export type NotificationStatus = "sent" | "failed" | "blocked";
+
+export interface DueNotification {
+  userId: string;
+  chatId: number;
+}
+
+export interface DrawerRepo {
+  /** Returns false when this update_id was already handled. */
+  recordUpdate(updateId: number): Promise<boolean>;
+  linkTelegram(tokenHash: string, telegramUserId: number, chatId: number): Promise<LinkResult>;
+  findLinkByTelegramUser(telegramUserId: number): Promise<TelegramLink | null>;
+  clearBlocked(userId: string): Promise<void>;
+  markBlocked(userId: string): Promise<void>;
+
+  getCurrentProject(userId: string): Promise<ProjectSummary | null>;
+  listProjects(userId: string): Promise<ProjectSummary[]>;
+  getProject(userId: string, projectId: string): Promise<ProjectSummary | null>;
+  createProject(userId: string, title: string): Promise<ProjectSummary>;
+  /** Returns false when the project does not belong to the user. */
+  setCurrentProject(userId: string, projectId: string): Promise<boolean>;
+
+  createPending(
+    userId: string,
+    input: { projectId: string; generalized: string; changes: ChangeCategory[]; chatId: number },
+  ): Promise<Pending>;
+  /** Unexpired card owned by the user, or null. */
+  getPending(userId: string, pendingId: string): Promise<Pending | null>;
+  /** The card the user is currently rewriting, or null. */
+  getEditingPending(userId: string): Promise<Pending | null>;
+  setCardMessage(userId: string, pendingId: string, messageId: number): Promise<void>;
+  /** Returns false when the project does not belong to the user. */
+  movePending(userId: string, pendingId: string, projectId: string): Promise<boolean>;
+  /** Puts this card into edit state and every other card of the user back to confirm. */
+  startEditing(userId: string, pendingId: string): Promise<void>;
+  deletePending(userId: string, pendingId: string): Promise<void>;
+  /** Atomically turns the card into a daily log. Returns false if the card is gone. */
+  savePendingAsLog(userId: string, pendingId: string, content: string, edited: boolean, logDate: string): Promise<boolean>;
+
+  listDueNotifications(hour: number, kstDate: string): Promise<DueNotification[]>;
+  /** Inserts today's notification row. Returns false if one already exists. */
+  claimNotification(userId: string, kstDate: string): Promise<boolean>;
+  setNotificationStatus(userId: string, kstDate: string, status: NotificationStatus): Promise<void>;
+}

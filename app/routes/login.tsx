@@ -1,4 +1,4 @@
-import { data, Form, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation } from "react-router";
 import { z } from "zod";
 
 import { createSupabase } from "~/lib/supabase.server";
@@ -19,7 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { supabase, headers } = createSupabase(request);
   const { data: auth } = await supabase.auth.getClaims();
   if (auth?.claims.sub) {
-    throw redirect("/onboarding", { headers });
+    throw redirect("/drawer", { headers });
   }
   return data(null, { headers });
 }
@@ -41,7 +41,7 @@ export async function action({ request }: Route.ActionArgs) {
     console.error("login failed", error.code ?? error.status);
     return data({ error: LOGIN_FAILED }, { status: 400, headers });
   }
-  throw redirect("/onboarding", { headers });
+  throw redirect("/drawer", { headers });
 }
 
 export default function Login({ actionData }: Route.ComponentProps) {
@@ -83,6 +83,12 @@ export default function Login({ actionData }: Route.ComponentProps) {
         >
           {isSubmitting ? "로그인 중…" : "로그인"}
         </button>
+        <p className="text-center text-sm text-slate-400">
+          처음이신가요?{" "}
+          <Link to="/signup" className="text-sky-400 underline">
+            가입하기
+          </Link>
+        </p>
       </Form>
     </main>
   );

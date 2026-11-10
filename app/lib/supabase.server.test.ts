@@ -1,11 +1,10 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 
 import { requireUser } from "./supabase.server";
+import { stubTestEnv } from "./test-env";
 
 beforeEach(() => {
-  vi.stubEnv("OPENAI_API_KEY", "sk-test-secret-value");
-  vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
-  vi.stubEnv("SUPABASE_ANON_KEY", "anon-test-secret-value");
+  stubTestEnv();
 });
 
 async function catchThrown(promise: Promise<unknown>) {
