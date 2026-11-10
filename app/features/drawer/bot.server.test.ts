@@ -384,6 +384,20 @@ describe("recording sessions", () => {
     expect(llmCreate).not.toHaveBeenCalled();
   });
 
+  test("opening a session the next day marks yesterday's open one as expired", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    now = new Date("2026-11-11T01:00:00Z"); // 10:00 KST the next day
+    vi.useFakeTimers({ now, toFake: ["Date"] });
+
+    await handleUpdate(deps, text(TG_A, "/record"));
+
+    expect(repo.sessions.map((s) => [s.kstDate, s.status])).toEqual([
+      ["2026-11-10", "expired"],
+      ["2026-11-11", "open"],
+    ]);
+    vi.useRealTimers();
+  });
+
   test("at most three sessions a day", async () => {
     for (let i = 0; i < 3; i++) {
       const pending = await sendAnswer();

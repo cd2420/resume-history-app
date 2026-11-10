@@ -4,7 +4,7 @@ import { DAILY_SESSION_LIMIT } from "./limits";
 import type { DrawerRepo, NotificationStatus, Pending, ProjectSummary, RecordSession, SessionPatch } from "./repo";
 
 export interface FakeSession extends RecordSession {
-  status: "open" | "carded" | "cancelled";
+  status: "open" | "carded" | "cancelled" | "expired";
   source: "notify" | "user";
   expiresAt: Date;
 }
@@ -162,7 +162,7 @@ export class FakeDrawerRepo implements DrawerRepo {
   async openSession(userId: string, input: Parameters<DrawerRepo["openSession"]>[1]) {
     const now = new Date();
     for (const s of this.sessions) {
-      if (s.userId === userId && s.status === "open" && s.expiresAt <= now) s.status = "cancelled";
+      if (s.userId === userId && s.status === "open" && s.expiresAt <= now) s.status = "expired";
     }
     const open = this.sessions.find((s) => s.userId === userId && s.status === "open");
     if (open) return { outcome: "exists" as const, session: { ...open } };

@@ -225,6 +225,7 @@ npm run build
 | 항목 | 결정·구현 |
 |---|---|
 | 세션 | `record_sessions` 테이블 + `drawer_open_session` RPC. 정각 알림·`/record`·[지금 기록하기]로 열림, 저장·취소·KST 자정에 닫힘. 사용자당 열린 세션 1개(부분 unique 인덱스) |
+| 상태값 | `open` → `carded`(카드까지 완료) / `cancelled`(AI 상한) / `expired`(자정 경과). 매시 정리 cron의 `drawer_expire_sessions()`가 `expired`로 바꾸고, 봇은 `expires_at`도 함께 확인. 응답률 지표: 알림 세션 중 `carded` 비율 |
 | 세션 밖 | AI 미호출·미저장, 안내 + [지금 기록하기] |
 | 질문 | 고정 문구 3개(`messages.ts`), 1번 필수, 2번 [건너뛰기], 3번 [아직 몰라요] |
 | 처리 | 답마다 즉시 일반화해 회차별 저장(원문 저장 0), 마지막에 하나의 카드(`composeLog`) |

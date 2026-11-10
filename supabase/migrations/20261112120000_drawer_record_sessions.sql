@@ -2,6 +2,9 @@
 -- The bot only processes answers inside a session, opened by the hourly prompt or by the
 -- user ([지금 기록하기] / /record), closed on save/cancel or at KST midnight. Each of the
 -- three answers is generalized right away and stored here; raw text is never stored.
+-- Status: open -> carded (card shown) | cancelled (gave up: AI limit) | expired (KST midnight
+-- passed without a card). The hourly cleanup job marks expired sessions; the bot also checks
+-- expires_at itself, so a late job never lets an expired session reach the AI.
 
 create table public.record_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -10,7 +13,7 @@ create table public.record_sessions (
   chat_id bigint not null,
   kst_date date not null,
   source text not null check (source in ('notify', 'user')),
-  status text not null default 'open' check (status in ('open', 'carded', 'cancelled')),
+  status text not null default 'open' check (status in ('open', 'carded', 'cancelled', 'expired')),
   step smallint not null default 1 check (step between 1 and 3),
   task text check (char_length(task) <= 1000),
   role text check (char_length(role) <= 1000),
@@ -35,6 +38,24 @@ grant all on public.record_sessions to service_role;
 alter table public.record_sessions enable row level security;
 -- No authenticated policies: the webhook (service_role) is the only reader and writer.
 
+-- Marks open sessions past their KST midnight as expired. Run hourly by pg_cron.
+create function public.drawer_expire_sessions()
+returns integer
+language sql
+set search_path = ''
+as $$
+  with expired as (
+    update public.record_sessions
+    set status = 'expired'
+    where status = 'open' and expires_at <= now()
+    returning 1
+  )
+  select count(*)::integer from expired;
+$$;
+
+revoke execute on function public.drawer_expire_sessions() from public, anon, authenticated;
+grant execute on function public.drawer_expire_sessions() to service_role;
+
 -- Opens a session in one transaction: closes the user's expired open session, reuses a
 -- still-open one, and enforces the daily session limit.
 create function public.drawer_open_session(
@@ -54,7 +75,7 @@ declare
   v_id uuid;
 begin
   update public.record_sessions
-  set status = 'cancelled'
+  set status = 'expired'
   where user_id = p_user_id and status = 'open' and expires_at <= now();
 
   select id into v_id
@@ -119,6 +140,7 @@ begin
       delete from public.telegram_updates where received_at < now() - interval '7 days';
       delete from public.pending_logs where expires_at < now();
       delete from public.telegram_link_tokens where expires_at < now() - interval '1 day';
+      select public.drawer_expire_sessions();
       delete from public.record_sessions where opened_at < now() - interval '7 days';
       $job$
     );
