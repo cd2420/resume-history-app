@@ -112,7 +112,7 @@ test.describe("with the E2E account", () => {
       await expect(page.getByTestId("telegram-status")).toContainText("아직 연결하지 않았어요");
     }
 
-    await page.getByRole("button", { name: "텔레그램 연결 링크 받기" }).click();
+    await page.getByRole("button", { name: "텔레그램 연결하기" }).click();
     const href = await page.getByTestId("deep-link").getAttribute("href");
     const token = new URL(href!).searchParams.get("start")!;
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);

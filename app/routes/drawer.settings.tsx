@@ -2,6 +2,7 @@ import { data, Form, useNavigation } from "react-router";
 import { z } from "zod";
 
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
+import { TelegramConnect } from "~/features/drawer/components/TelegramSetup";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
 import { requireConsentedSession } from "~/features/drawer/session.server";
 import { getEnv } from "~/lib/env.server";
@@ -95,20 +96,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
               <p data-testid="telegram-status" className="text-sm text-slate-300">
                 아직 연결하지 않았어요.
               </p>
-              {actionData?.deepLink ? (
-                <div className="flex flex-col gap-2">
-                  <a href={actionData.deepLink} data-testid="deep-link" className={`${button} text-center`}>
-                    {isDemo ? "봇 시뮬레이터에서 연결하기" : `텔레그램에서 @${botUsername} 열기`}
-                  </a>
-                  <p className="text-xs text-slate-400">9분 안에 한 번만 쓸 수 있어요. 연결한 뒤 이 페이지를 새로고침하세요.</p>
-                </div>
-              ) : (
-                <Form method="post">
-                  <button name="intent" value="connect" disabled={busy} className={button}>
-                    텔레그램 연결 링크 받기
-                  </button>
-                </Form>
-              )}
+              <TelegramConnect isDemo={isDemo} botUsername={botUsername} />
             </>
           )}
         </section>

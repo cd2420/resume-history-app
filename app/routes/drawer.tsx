@@ -19,7 +19,9 @@ import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { Highlight, TagChips } from "~/features/drawer/components/TagChips";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
 import { MAX_PROJECT_TITLE } from "~/features/drawer/limits";
+import { TelegramSetup } from "~/features/drawer/components/TelegramSetup";
 import { requireConsentedSession } from "~/features/drawer/session.server";
+import { getEnv } from "~/lib/env.server";
 import { getLlm } from "~/lib/llm.server";
 import type { Route } from "./+types/drawer";
 
@@ -44,11 +46,18 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const { store, headers, isDemo } = await requireConsentedSession(request);
   const filters = parseSearchFilters(new URL(request.url).searchParams);
-  const [shelf, hits] = await Promise.all([
+  const [shelf, hits, overview] = await Promise.all([
     store.getBookshelf(),
     hasFilters(filters) ? store.search(filters) : Promise.resolve(null),
+    // ponytail: overview also loads projects and recent logs; add a narrow status query if this page gets slow.
+    store.getOverview(),
   ]);
-  return data({ ...shelf, filters, hits, isDemo }, { headers });
+  const setup = {
+    isLinked: overview.telegram !== null,
+    notifyHour: overview.notifyHour,
+    botUsername: getEnv().TELEGRAM_BOT_USERNAME,
+  };
+  return data({ ...shelf, filters, hits, isDemo, setup }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -273,8 +282,32 @@ function ShelfRow({
   );
 }
 
+function CreateShelfForm({ busy }: { busy: boolean }) {
+  return (
+    <Form method="post" className="flex gap-2">
+      <input type="hidden" name="intent" value="create_shelf" />
+      <input name="name" placeholder="새 칸 이름 (예: A사, 개인 프로젝트)" aria-label="새 칸 이름" maxLength={MAX_SHELF_NAME} required className={`${input} flex-1`} />
+      <button type="submit" disabled={busy} className={button}>
+        칸 만들기
+      </button>
+    </Form>
+  );
+}
+
+function CreateBookForm({ busy }: { busy: boolean }) {
+  return (
+    <Form method="post" className="flex gap-2">
+      <input type="hidden" name="intent" value="create_book" />
+      <input name="title" placeholder="새 책(프로젝트) 이름" aria-label="새 책 이름" maxLength={MAX_PROJECT_TITLE} required className={`${input} flex-1`} />
+      <button type="submit" disabled={busy} className={button}>
+        책 만들기
+      </button>
+    </Form>
+  );
+}
+
 export default function Bookshelf({ loaderData, actionData }: Route.ComponentProps) {
-  const { shelves, books, untaggedCount, tags, filters, hits, isDemo } = loaderData;
+  const { shelves, books, untaggedCount, tags, filters, hits, isDemo, setup } = loaderData;
   const busy = useNavigation().state !== "idle";
   const unshelved = books.filter((book) => book.shelfId === null);
 
@@ -282,6 +315,7 @@ export default function Bookshelf({ loaderData, actionData }: Route.ComponentPro
     <main className="min-h-screen bg-slate-900 px-4 py-6 text-slate-50">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         <DrawerNav isDemo={isDemo} />
+        <TelegramSetup {...setup} isDemo={isDemo} />
         <SearchBar key={JSON.stringify(filters)} filters={filters} tags={tags} />
         <Flash error={actionData?.error} done={actionData?.done} />
 
@@ -298,12 +332,6 @@ export default function Bookshelf({ loaderData, actionData }: Route.ComponentPro
               </Form>
             )}
 
-            {books.length === 0 && (
-              <p className="rounded bg-slate-800 p-4 text-sm text-slate-300">
-                아직 책이 없어요. 텔레그램에서 <code>/project 이름</code>으로 만들거나 아래에서 만들어 보세요.
-              </p>
-            )}
-
             <div className="flex flex-col gap-4">
               {unshelved.length > 0 && <ShelfRow shelf={null} books={unshelved} index={-1} total={0} busy={busy} />}
               {shelves.map((shelf, index) => (
@@ -318,22 +346,30 @@ export default function Bookshelf({ loaderData, actionData }: Route.ComponentPro
               ))}
             </div>
 
-            <div className="grid gap-3 rounded bg-slate-800 p-3 md:grid-cols-2">
-              <Form method="post" className="flex gap-2">
-                <input type="hidden" name="intent" value="create_shelf" />
-                <input name="name" placeholder="새 칸 이름 (예: A사, 개인 프로젝트)" aria-label="새 칸 이름" maxLength={MAX_SHELF_NAME} required className={`${input} flex-1`} />
-                <button type="submit" disabled={busy} className={button}>
-                  칸 만들기
-                </button>
-              </Form>
-              <Form method="post" className="flex gap-2">
-                <input type="hidden" name="intent" value="create_book" />
-                <input name="title" placeholder="새 책(프로젝트) 이름" aria-label="새 책 이름" maxLength={MAX_PROJECT_TITLE} required className={`${input} flex-1`} />
-                <button type="submit" disabled={busy} className={button}>
-                  책 만들기
-                </button>
-              </Form>
-            </div>
+            {books.length === 0 ? (
+              <section aria-label="첫 책 만들기" className="flex flex-col gap-2 rounded bg-slate-800 p-4">
+                <p className="text-sm text-slate-300">
+                  아직 책이 없어요. 지금 하고 있는 프로젝트 이름으로 첫 책을 만들어 보세요. 텔레그램 답변이 이 책에 쌓여요.
+                </p>
+                <CreateBookForm busy={busy} />
+              </section>
+            ) : (
+              <div className={`grid gap-3 rounded bg-slate-800 p-3 ${shelves.length > 0 ? "md:grid-cols-2" : ""}`}>
+                {shelves.length > 0 ? (
+                  <CreateShelfForm busy={busy} />
+                ) : (
+                  // Shelves only make sense once there are books to group, so they are offered here first.
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-slate-300">📇 책을 회사나 주제별로 칸에 묶어 볼까요?</summary>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <p className="text-xs text-slate-400">칸을 만든 뒤 책을 열고 '칸으로 이동'에서 고르면 그 칸에 꽂혀요.</p>
+                      <CreateShelfForm busy={busy} />
+                    </div>
+                  </details>
+                )}
+                <CreateBookForm busy={busy} />
+              </div>
+            )}
           </>
         )}
       </div>

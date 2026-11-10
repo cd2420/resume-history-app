@@ -68,10 +68,10 @@ test("demo: link the bot, shelve a new book, find a log by tag, then edit and de
   await expect(shelf(page, "A사").getByTestId("book")).toHaveCount(2);
   await expect(shelf(page, "개인 프로젝트").getByTestId("book")).toHaveCount(1);
 
-  // M1: link the simulator bot from settings.
-  await page.getByRole("link", { name: "설정" }).click();
-  await settled(page);
-  await page.getByRole("button", { name: "텔레그램 연결 링크 받기" }).click();
+  // M1: a first-time user links the simulator bot straight from the bookshelf's setup card.
+  const setup = page.getByTestId("telegram-setup");
+  await expect(setup).toContainText("1. 텔레그램 연결");
+  await setup.getByRole("button", { name: "텔레그램 연결하기" }).click();
   await page.getByTestId("deep-link").click();
   await expect(page).toHaveURL(/\/drawer\/demo-bot\?start=/);
   await settled(page);
@@ -164,7 +164,7 @@ test("demo: the hourly prompt is skipped once today is logged", async ({ page })
   await signInFresh(page);
   await page.goto("/drawer/settings");
   await settled(page);
-  await page.getByRole("button", { name: "텔레그램 연결 링크 받기" }).click();
+  await page.getByRole("button", { name: "텔레그램 연결하기" }).click();
   await page.getByTestId("deep-link").click();
   await settled(page);
   await page.getByRole("button", { name: "시작", exact: true }).click();
