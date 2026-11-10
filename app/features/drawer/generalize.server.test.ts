@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
-import { generalize, GeneralizeError, MAX_LOG_LENGTH } from "./generalize.server";
+import { generalize, GeneralizeError, MAX_LOG_LENGTH, suggestTags } from "./generalize.server";
 
 const RAW = "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임";
 
@@ -39,7 +39,7 @@ describe("generalize", () => {
 
   test("dedupes repeated change categories", async () => {
     const { llm } = llmReturning(
-      fakeResponse(JSON.stringify({ generalized: "x", changes: ["client_name", "client_name"] })),
+      fakeResponse(JSON.stringify({ generalized: "x", changes: ["client_name", "client_name"], tags: [] })),
     );
 
     expect((await generalize(llm, RAW)).changes).toEqual(["client_name"]);
@@ -68,7 +68,12 @@ describe("generalize", () => {
   });
 
   test("fails as invalid on non-JSON, schema mismatch or empty result", async () => {
-    for (const text of ["not json", JSON.stringify({ generalized: 1 }), JSON.stringify({ generalized: " ", changes: [] })]) {
+    for (const text of [
+      "not json",
+      JSON.stringify({ generalized: 1 }),
+      JSON.stringify({ generalized: "x", changes: [] }),
+      JSON.stringify({ generalized: " ", changes: [], tags: [] }),
+    ]) {
       const { llm } = llmReturning(fakeResponse(text));
       expect(await reasonOf(generalize(llm, RAW))).toBe("invalid");
     }
@@ -80,5 +85,49 @@ describe("generalize", () => {
 
     expect(await reasonOf(generalize(thrown, RAW))).toBe("api");
     expect(await reasonOf(generalize(failed.llm, RAW))).toBe("api");
+  });
+
+  test("normalizes tags and reuses the user's existing spelling", async () => {
+    const { llm } = llmReturning(
+      fakeResponse(JSON.stringify({ generalized: "x", changes: [], tags: ["#kafka", "kafka", " 성능  개선 ", "a", "b", "c", "d"] })),
+    );
+
+    expect((await generalize(llm, RAW, ["Kafka"])).tags).toEqual(["Kafka", "성능 개선", "a", "b", "c"]);
+  });
+
+  test("sends existing tags in the instructions, never in the user input", async () => {
+    const { llm, create } = llmReturning(fakeResponse(JSON.stringify(FAKE_GENERALIZATION)));
+
+    await generalize(llm, RAW, ["Kafka", "캐시"]);
+
+    const body = create.mock.calls[0][0];
+    expect(body.instructions).toContain("사용자가 이미 쓰는 태그: Kafka, 캐시");
+    expect(body.input).toEqual([{ role: "user", content: RAW }]);
+  });
+
+  test("omits the existing-tag line when there are none", async () => {
+    const { llm, create } = llmReturning(fakeResponse(JSON.stringify(FAKE_GENERALIZATION)));
+
+    await generalize(llm, RAW);
+
+    expect(create.mock.calls[0][0].instructions).not.toContain("사용자가 이미 쓰는 태그:");
+  });
+});
+
+describe("suggestTags", () => {
+  test("returns normalized tags for an already generalized log with store: false", async () => {
+    const { llm, create } = llmReturning(fakeResponse(JSON.stringify({ tags: ["redis", "캐시"] })));
+
+    await expect(suggestTags(llm, "대형 금융사 결제 API에 캐시 적용", ["Redis"])).resolves.toEqual(["Redis", "캐시"]);
+    const body = create.mock.calls[0][0];
+    expect(body.store).toBe(false);
+    expect(body.text.format.name).toBe("log_tags");
+  });
+
+  test("fails as invalid on a schema mismatch and as empty on blank content", async () => {
+    const { llm } = llmReturning(fakeResponse(JSON.stringify({ tag: "x" })));
+
+    expect(await reasonOf(suggestTags(llm, "x"))).toBe("invalid");
+    expect(await reasonOf(suggestTags(llm, "  "))).toBe("empty");
   });
 });

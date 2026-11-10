@@ -11,6 +11,7 @@ interface Link {
 
 export interface FakeLog {
   id?: string;
+  tags?: string[];
   userId: string;
   projectId: string;
   logDate: string;
@@ -23,7 +24,7 @@ export class FakeDrawerRepo implements DrawerRepo {
   updates = new Set<number>();
   tokens = new Map<string, { userId: string; used: boolean; expired: boolean }>();
   links: Link[] = [];
-  projects: (ProjectSummary & { userId: string })[] = [];
+  projects: (ProjectSummary & { userId: string; shelfId?: string | null; createdAt?: number })[] = [];
   currentProject = new Map<string, string>();
   notifyHour = new Map<string, number>();
   pendings: Pending[] = [];
@@ -31,7 +32,7 @@ export class FakeDrawerRepo implements DrawerRepo {
   notifications = new Map<string, NotificationStatus | "sending">();
 
   addProject(userId: string, title: string): ProjectSummary {
-    const project = { id: randomUUID(), title, userId };
+    const project = { id: randomUUID(), title, userId, shelfId: null, createdAt: this.projects.length };
     this.projects.push(project);
     return { id: project.id, title };
   }
@@ -83,6 +84,11 @@ export class FakeDrawerRepo implements DrawerRepo {
   async getProject(userId: string, projectId: string) {
     const p = this.owned(userId, projectId);
     return p ? { id: p.id, title: p.title } : null;
+  }
+
+  async listTags(userId: string) {
+    const recent = [...this.logs].reverse().filter((log) => log.userId === userId);
+    return [...new Set(recent.flatMap((log) => log.tags ?? []))];
   }
 
   async createProject(userId: string, title: string) {
@@ -141,7 +147,7 @@ export class FakeDrawerRepo implements DrawerRepo {
     const p = this.findPending(userId, pendingId);
     if (!p) return false;
     this.pendings = this.pendings.filter((x) => x !== p);
-    this.logs.push({ id: randomUUID(), userId, projectId: p.projectId, logDate, content, edited });
+    this.logs.push({ id: randomUUID(), userId, projectId: p.projectId, logDate, content, edited, tags: [...p.tags] });
     return true;
   }
 

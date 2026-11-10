@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { type BookshelfStore, createSupabaseBookshelf } from "./bookshelf.server";
 import { createLinkToken, LINK_TOKEN_TTL_MS } from "./link-token.server";
 
 // Bump when the consent text changes; users re-consent to the new version.
@@ -165,7 +166,7 @@ export async function deleteLog(supabase: SupabaseClient, userId: string, logId:
 }
 
 /** The /drawer pages' data operations, bound to one signed-in user. */
-export interface DrawerWebStore {
+export interface DrawerWebStore extends BookshelfStore {
   hasRequiredConsents(): Promise<boolean>;
   recordConsents(): Promise<void>;
   getOverview(): Promise<DrawerOverview>;
@@ -181,6 +182,7 @@ export interface DrawerWebStore {
 
 export function createSupabaseWebStore(supabase: SupabaseClient, userId: string): DrawerWebStore {
   return {
+    ...createSupabaseBookshelf(supabase, userId),
     hasRequiredConsents: () => hasRequiredConsents(supabase, userId),
     recordConsents: () => recordConsents(supabase, userId),
     getOverview: () => getDrawerOverview(supabase, userId),

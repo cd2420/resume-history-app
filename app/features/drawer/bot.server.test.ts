@@ -258,4 +258,30 @@ describe("daily answer", () => {
     expect(repo.links[0].blocked).toBe(false);
     expect(lastText()).toBe(MESSAGES.help(APP_URL));
   });
+
+  test("the card shows tags and the saved log keeps them, also after a rewrite", async () => {
+    withProject(USER_A);
+    const first = await sendAnswer();
+    expect(lastText()).toContain("태그: #Redis #캐시 #성능 개선");
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "save", pendingId: first.id })));
+
+    const second = await sendAnswer();
+    await handleUpdate(deps, press(TG_A, callbackData({ kind: "edit", pendingId: second.id })));
+    await handleUpdate(deps, text(TG_A, "고친 글"));
+
+    expect(repo.logs.map((log) => log.tags)).toEqual([FAKE_GENERALIZATION.tags, FAKE_GENERALIZATION.tags]);
+  });
+
+  test("passes the user's existing tags to the model, not another user's", async () => {
+    withProject(USER_A);
+    repo.logs.push({ userId: USER_A, projectId: "p", logDate: "2026-11-01", content: "x", edited: false, tags: ["Kafka"] });
+    repo.logs.push({ userId: USER_B, projectId: "q", logDate: "2026-11-01", content: "y", edited: false, tags: ["비밀태그"] });
+
+    await sendAnswer();
+
+    const instructions = llmCreate.mock.calls[0][0].instructions as string;
+    expect(instructions).toContain("사용자가 이미 쓰는 태그: Kafka");
+    expect(instructions).not.toContain("비밀태그");
+  });
 });
+

@@ -27,12 +27,14 @@ interface PendingRow {
   project_id: string;
   generalized: string;
   change_categories: string[];
+  tags: string[];
   state: "confirm" | "edit";
   chat_id: number;
   card_message_id: number | null;
 }
 
-const PENDING_COLUMNS = "id, user_id, project_id, generalized, change_categories, state, chat_id, card_message_id";
+const PENDING_COLUMNS = "id, user_id, project_id, generalized, change_categories, tags, state, chat_id, card_message_id";
+const RECENT_LOGS_FOR_TAGS = 200;
 
 function toPending(row: PendingRow): Pending {
   return {
@@ -43,6 +45,7 @@ function toPending(row: PendingRow): Pending {
     changes: row.change_categories.filter((c): c is ChangeCategory =>
       (CHANGE_CATEGORIES as readonly string[]).includes(c),
     ),
+    tags: row.tags ?? [],
     state: row.state,
     chatId: Number(row.chat_id),
     cardMessageId: row.card_message_id === null ? null : Number(row.card_message_id),
@@ -125,6 +128,18 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
       return data;
     },
 
+    async listTags(userId) {
+      const { data, error } = await admin
+        .from("daily_logs")
+        .select("tags")
+        .eq("user_id", userId)
+        .neq("tags", "{}")
+        .order("created_at", { ascending: false })
+        .limit(RECENT_LOGS_FOR_TAGS);
+      if (error) fail("listTags", error);
+      return [...new Set((data as { tags: string[] }[]).flatMap((row) => row.tags))];
+    },
+
     async createProject(userId, title) {
       const { data, error } = await admin
         .from("projects")
@@ -154,6 +169,7 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
           project_id: input.projectId,
           generalized: input.generalized,
           change_categories: input.changes,
+          tags: input.tags,
           chat_id: input.chatId,
         })
         .select(PENDING_COLUMNS)

@@ -21,6 +21,7 @@ export interface Pending {
   projectId: string;
   generalized: string;
   changes: ChangeCategory[];
+  tags: string[];
   state: "confirm" | "edit";
   chatId: number;
   cardMessageId: number | null;
@@ -45,13 +46,15 @@ export interface DrawerRepo {
   getCurrentProject(userId: string): Promise<ProjectSummary | null>;
   listProjects(userId: string): Promise<ProjectSummary[]>;
   getProject(userId: string, projectId: string): Promise<ProjectSummary | null>;
+  /** The user's tags, most recently used first, so the model can reuse their spelling. */
+  listTags(userId: string): Promise<string[]>;
   createProject(userId: string, title: string): Promise<ProjectSummary>;
   /** Returns false when the project does not belong to the user. */
   setCurrentProject(userId: string, projectId: string): Promise<boolean>;
 
   createPending(
     userId: string,
-    input: { projectId: string; generalized: string; changes: ChangeCategory[]; chatId: number },
+    input: { projectId: string; generalized: string; changes: ChangeCategory[]; tags: string[]; chatId: number },
   ): Promise<Pending>;
   /** Unexpired card owned by the user, or null. */
   getPending(userId: string, pendingId: string): Promise<Pending | null>;

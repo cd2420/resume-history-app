@@ -4,7 +4,8 @@ import { z } from "zod";
 
 import { LLM_MODEL } from "~/lib/llm.server";
 import { MAX_LOG_LENGTH } from "./limits";
-import { GENERALIZE_PROMPT } from "./prompts";
+import { GENERALIZE_PROMPT, TAG_PROMPT } from "./prompts";
+import { normalizeTags } from "./tags";
 
 export { MAX_LOG_LENGTH };
 
@@ -24,12 +25,19 @@ export type ChangeCategory = (typeof CHANGE_CATEGORIES)[number];
 export const generalizationSchema = z.object({
   generalized: z.string(),
   changes: z.array(z.enum(CHANGE_CATEGORIES)),
+  tags: z.array(z.string()),
 });
+
+const tagSuggestionSchema = z.object({ tags: z.array(z.string()) });
 
 export interface Generalization {
   generalized: string;
   changes: ChangeCategory[];
+  tags: string[];
 }
+
+// Enough for the model to reuse the user's spelling without bloating every request.
+const EXISTING_TAG_LIMIT = 100;
 
 type CreateParams = OpenAI.Responses.ResponseCreateParamsNonStreaming;
 type ResponseResult = OpenAI.Responses.Response;
@@ -63,27 +71,15 @@ function outputText(response: ResponseResult): string {
   return text;
 }
 
-/**
- * Rewrites one daily answer with company secrets generalized.
- * store: false keeps the raw text out of OpenAI's stored application state; the caller
- * must also never persist or log `text`.
- */
-export async function generalize(llm: DrawerLlmClient, text: string): Promise<Generalization> {
-  const input = text.trim();
-  if (!input) throw new GeneralizeError("empty");
-  if (input.length > MAX_LOG_LENGTH) throw new GeneralizeError("too_long");
+function withExistingTags(prompt: string, existingTags: readonly string[]): string {
+  const known = existingTags.slice(0, EXISTING_TAG_LIMIT);
+  return known.length ? `${prompt}\n\n사용자가 이미 쓰는 태그: ${known.join(", ")}` : prompt;
+}
 
+async function requestJson(llm: DrawerLlmClient, body: CreateParams): Promise<unknown> {
   let response: ResponseResult;
   try {
-    response = await llm.responses.create({
-      model: LLM_MODEL,
-      store: false,
-      reasoning: { effort: "low" },
-      max_output_tokens: GENERALIZE_MAX_TOKENS,
-      instructions: GENERALIZE_PROMPT,
-      input: [{ role: "user", content: input }],
-      text: { format: zodTextFormat(generalizationSchema, "generalized_log") },
-    });
+    response = await llm.responses.create(body);
   } catch (cause) {
     throw new GeneralizeError("api", { cause });
   }
@@ -94,17 +90,70 @@ export async function generalize(llm: DrawerLlmClient, text: string): Promise<Ge
   }
   if (response.status && response.status !== "completed") throw new GeneralizeError("api");
 
-  const raw = outputText(response);
-  let json: unknown;
+  // Read outside the try: a refusal must surface as "refused", not as a JSON error.
+  const text = outputText(response);
   try {
-    json = JSON.parse(raw);
+    return JSON.parse(text);
   } catch (cause) {
     throw new GeneralizeError("invalid", { cause });
   }
+}
+
+/**
+ * Rewrites one daily answer with company secrets generalized and picks search tags.
+ * store: false keeps the raw text out of OpenAI's stored application state; the caller
+ * must also never persist or log `text`. Only existing (already generalized) tag names
+ * are sent along.
+ */
+export async function generalize(
+  llm: DrawerLlmClient,
+  text: string,
+  existingTags: readonly string[] = [],
+): Promise<Generalization> {
+  const input = text.trim();
+  if (!input) throw new GeneralizeError("empty");
+  if (input.length > MAX_LOG_LENGTH) throw new GeneralizeError("too_long");
+
+  const json = await requestJson(llm, {
+    model: LLM_MODEL,
+    store: false,
+    reasoning: { effort: "low" },
+    max_output_tokens: GENERALIZE_MAX_TOKENS,
+    instructions: withExistingTags(GENERALIZE_PROMPT, existingTags),
+    input: [{ role: "user", content: input }],
+    text: { format: zodTextFormat(generalizationSchema, "generalized_log") },
+  });
   const parsed = generalizationSchema.safeParse(json);
   if (!parsed.success) throw new GeneralizeError("invalid", { cause: parsed.error });
 
   const generalized = parsed.data.generalized.trim();
   if (!generalized || generalized.length > MAX_LOG_LENGTH) throw new GeneralizeError("invalid");
-  return { generalized, changes: [...new Set(parsed.data.changes)] };
+  return {
+    generalized,
+    changes: [...new Set(parsed.data.changes)],
+    tags: normalizeTags(parsed.data.tags, existingTags),
+  };
+}
+
+/** Tags for a log saved before tagging existed. `content` is already generalized. */
+export async function suggestTags(
+  llm: DrawerLlmClient,
+  content: string,
+  existingTags: readonly string[] = [],
+): Promise<string[]> {
+  const input = content.trim();
+  if (!input) throw new GeneralizeError("empty");
+
+  const json = await requestJson(llm, {
+    model: LLM_MODEL,
+    store: false,
+    reasoning: { effort: "low" },
+    max_output_tokens: GENERALIZE_MAX_TOKENS,
+    instructions: withExistingTags(TAG_PROMPT, existingTags),
+    input: [{ role: "user", content: input }],
+    text: { format: zodTextFormat(tagSuggestionSchema, "log_tags") },
+  });
+  const parsed = tagSuggestionSchema.safeParse(json);
+  if (!parsed.success) throw new GeneralizeError("invalid", { cause: parsed.error });
+  return normalizeTags(parsed.data.tags, existingTags);
 }

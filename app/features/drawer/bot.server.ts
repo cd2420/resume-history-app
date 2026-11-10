@@ -32,19 +32,19 @@ const CHANGE_LABELS: Record<ChangeCategory, string> = {
 
 export const MESSAGES = {
   notLinked: (appUrl: string) =>
-    `먼저 웹에서 가입하고 텔레그램을 연결해 주세요.\n${appUrl}/drawer`,
+    `먼저 웹에서 가입하고 텔레그램을 연결해 주세요.\n${appUrl}/drawer/settings`,
   linked: (appUrl: string) =>
-    `연결됐어요! 🗄️\n알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer\n\n` +
+    `연결됐어요! 🗄️\n알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer/settings\n\n` +
     "먼저 지금 하고 있는 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
   linkInvalid: (appUrl: string) =>
-    `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer`,
+    `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
   telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
   help: (appUrl: string) =>
     "이력서랍 사용법\n" +
     "• 오늘 한 일을 한두 줄로 보내면 기밀을 가린 카드가 와요. [저장]을 누르면 서랍에 들어가요.\n" +
     "• /project — 현재 프로젝트 바꾸기\n" +
     "• /project 이름 — 새 프로젝트를 만들고 현재 프로젝트로 지정\n" +
-    `• 기록 보기·수정: ${appUrl}/drawer`,
+    `• 책장에서 기록 찾기·수정: ${appUrl}/drawer`,
   noProject: "먼저 프로젝트를 만들어 주세요.\n예) /project 결제 시스템 개편",
   projectTitleInvalid: `프로젝트 이름은 1~${MAX_PROJECT_TITLE}자로 보내 주세요.`,
   projectCreated: (title: string) => `프로젝트를 만들었어요: ${title}\n이제 오늘 한 일을 보내 주세요.`,
@@ -61,11 +61,15 @@ export const MESSAGES = {
   pickProject: "어느 프로젝트에 넣을까요?",
 } as const;
 
-export function renderCard(pending: Pick<Pending, "generalized" | "changes">, project: ProjectSummary | null): string {
+export function renderCard(
+  pending: Pick<Pending, "generalized" | "changes" | "tags">,
+  project: ProjectSummary | null,
+): string {
   const changed = pending.changes.length
     ? `가린 정보: ${pending.changes.map((c) => CHANGE_LABELS[c]).join(", ")}`
     : "가린 정보 없음";
-  return `📝 이렇게 서랍에 넣을까요?\n[${project?.title ?? "프로젝트 없음"}]\n\n${pending.generalized}\n\n${changed}`;
+  const tags = pending.tags.length ? `\n태그: ${pending.tags.map((t) => `#${t}`).join(" ")}` : "";
+  return `📝 이렇게 서랍에 넣을까요?\n[${project?.title ?? "프로젝트 없음"}]\n\n${pending.generalized}\n\n${changed}${tags}`;
 }
 
 function cardKeyboard(pendingId: string): InlineKeyboard {
@@ -198,7 +202,7 @@ async function proposeCard(deps: BotDeps, link: TelegramLink, chatId: number, te
 
   let result;
   try {
-    result = await generalize(deps.llm, text);
+    result = await generalize(deps.llm, text, await deps.repo.listTags(link.userId));
   } catch (error) {
     if (!(error instanceof GeneralizeError)) throw error;
     console.error("generalize failed", error.reason);
@@ -210,6 +214,7 @@ async function proposeCard(deps: BotDeps, link: TelegramLink, chatId: number, te
     projectId: project.id,
     generalized: result.generalized,
     changes: result.changes,
+    tags: result.tags,
     chatId,
   });
   const sent = await deps.telegram.sendMessage(chatId, renderCard(pending, project), cardKeyboard(pending.id));

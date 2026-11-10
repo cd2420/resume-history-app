@@ -7,7 +7,10 @@ type ResponseResult = OpenAI.Responses.Response;
 export const FAKE_GENERALIZATION: Generalization = {
   generalized: "대형 금융사 결제 승인 API의 응답 지연 원인을 찾아 캐시를 적용함",
   changes: ["client_name"],
+  tags: ["Redis", "캐시", "성능 개선"],
 };
+
+export const FAKE_SUGGESTED_TAGS = ["성능 개선"];
 
 interface FakeOptions {
   status?: ResponseResult["status"];
@@ -41,7 +44,15 @@ export function fakeResponse(text: string, { status = "completed", incompleteRea
 export function createFakeDrawerLlm(): DrawerLlmClient {
   return {
     responses: {
-      create: async () => fakeResponse(JSON.stringify(FAKE_GENERALIZATION)),
+      // The tag-only request asks for the "log_tags" format.
+      create: async (body) =>
+        fakeResponse(
+          JSON.stringify(
+            body.text?.format?.type === "json_schema" && body.text.format.name === "log_tags"
+              ? { tags: FAKE_SUGGESTED_TAGS }
+              : FAKE_GENERALIZATION,
+          ),
+        ),
     },
   };
 }
