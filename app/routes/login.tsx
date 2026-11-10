@@ -54,7 +54,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Login({ loaderData, actionData }: Route.ComponentProps) {
-  const isSubmitting = useNavigation().state === "submitting";
+  // formData stays set through the redirect's loading phase, so the button stays disabled until the next page.
+  const isSubmitting = useNavigation().formData != null;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-900 px-4 text-slate-50">

@@ -65,7 +65,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Signup({ actionData }: Route.ComponentProps) {
-  const isSubmitting = useNavigation().state === "submitting";
+  // formData stays set through the redirect's loading phase, so the button stays disabled until the next page.
+  const isSubmitting = useNavigation().formData != null;
 
   if (actionData?.sent) {
     return (

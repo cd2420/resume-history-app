@@ -164,9 +164,9 @@ test.describe("with the E2E account", () => {
     const edited = page.getByTestId("log").filter({ hasText: "금융권 결제 API에 캐시 적용" });
     await expect(edited).toContainText("직접 수정");
 
-    page.once("dialog", (dialog) => dialog.accept());
-    await edited.getByText("수정·삭제").click();
+      await edited.getByText("수정·삭제").click();
     await edited.getByRole("button", { name: "삭제" }).click();
+    await edited.getByRole("button", { name: "지우기" }).click();
     await expect(page.getByTestId("log")).toHaveCount(0);
 
     await page.goto("/drawer/settings");

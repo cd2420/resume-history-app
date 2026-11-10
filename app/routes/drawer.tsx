@@ -14,6 +14,7 @@ import {
 } from "~/features/drawer/bookshelf";
 import { fillMissingTags } from "~/features/drawer/bookshelf.server";
 import { BookCover } from "~/features/drawer/components/BookCover";
+import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { Highlight, TagChips } from "~/features/drawer/components/TagChips";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
@@ -257,17 +258,13 @@ function ShelfRow({
                   이름 바꾸기
                 </button>
               </Form>
-              <Form
-                method="post"
-                onSubmit={(event) => {
-                  if (!confirm(`'${shelf.name}' 칸을 지울까요? 꽂힌 책은 '${NEW_SHELF_LABEL}'로 옮겨져요.`)) event.preventDefault();
-                }}
-              >
-                <input type="hidden" name="shelfId" value={shelf.id} />
-                <button name="intent" value="delete_shelf" disabled={busy} className="px-2 py-2 text-sm text-red-400 underline">
-                  칸 지우기
-                </button>
-              </Form>
+              <ConfirmDelete
+                label="칸 지우기"
+                question={`'${shelf.name}' 칸을 지울까요? 꽂힌 책은 '${NEW_SHELF_LABEL}'로 옮겨져요.`}
+                intent="delete_shelf"
+                fields={{ shelfId: shelf.id }}
+                busy={busy}
+              />
             </div>
           </details>
         )}

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { formatPeriod, groupByMonth, MAX_SHELF_NAME, NEW_SHELF_LABEL } from "~/features/drawer/bookshelf";
 import { spineColor } from "~/features/drawer/components/BookCover";
+import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { TagChips } from "~/features/drawer/components/TagChips";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
@@ -211,17 +212,13 @@ export default function Book({ loaderData, actionData }: Route.ComponentProps) {
                               </button>
                             </Form>
                             <p className="text-xs text-slate-500">태그는 최대 {MAX_TAGS}개, 각 30자까지예요.</p>
-                            <Form
-                              method="post"
-                              onSubmit={(event) => {
-                                if (!confirm("이 기록을 지울까요?")) event.preventDefault();
-                              }}
-                            >
-                              <input type="hidden" name="logId" value={log.id} />
-                              <button name="intent" value="delete_log" disabled={busy} className="text-sm text-red-400 underline">
-                                삭제
-                              </button>
-                            </Form>
+                            <ConfirmDelete
+                              label="삭제"
+                              question="이 기록을 지울까요? 되돌릴 수 없어요."
+                              intent="delete_log"
+                              fields={{ logId: log.id }}
+                              busy={busy}
+                            />
                           </div>
                         </details>
                       </li>
