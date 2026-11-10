@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, type Mock, test, vi } from "vitest";
 import { createFakeTelegram } from "~/features/telegram/fake-telegram";
 import type { TelegramUpdate } from "~/features/telegram/update-schema";
 import { type BotDeps, handleUpdate, MESSAGES } from "./bot.server";
+import { LIMIT_HINT } from "./messages";
 import { createFakeDrawerLlm, FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
 import { FakeDrawerRepo } from "./fake-repo";
 import type { DrawerLlmClient } from "./generalize.server";
@@ -462,6 +463,22 @@ describe("recording sessions", () => {
       ["2026-11-11", "open"],
     ]);
     vi.useRealTimers();
+  });
+
+  test("a regular user is told up front that AI tidying is once a day; an admin is not", async () => {
+    withProject(USER_A);
+    await handleUpdate(deps, text(TG_A, "/record"));
+    expect(lastText()).toContain(LIMIT_HINT);
+    await handleUpdate(deps, text(TG_A, "/help"));
+    expect(lastText()).toContain("하루 1회");
+
+    linkUser(USER_B, TG_B);
+    withProject(USER_B);
+    repo.roles.set(USER_B, "admin");
+    await handleUpdate(deps, text(TG_B, "/record"));
+    expect(lastText()).not.toContain(LIMIT_HINT);
+    await handleUpdate(deps, text(TG_B, "/help"));
+    expect(lastText()).not.toContain("하루 1회");
   });
 
   test("an admin is not held to the daily session or per-session AI limits", async () => {

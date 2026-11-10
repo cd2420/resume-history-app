@@ -5,7 +5,7 @@ import type { DrawerWebStore } from "./drawer-web.server";
 import { createFakeDrawerLlm, FAKE_STAR } from "./fake-llm";
 import type { DrawerLlmClient } from "./generalize.server";
 import { FREE_STAR_GENERATIONS } from "./star";
-import { generateStar, saveStar, StarError } from "./star.server";
+import { generateStar, getStarQuota, saveStar, StarError } from "./star.server";
 
 const OTHER = "00000000-0000-4000-8000-0000000000ff";
 
@@ -38,6 +38,18 @@ describe("generateStar", () => {
 
     expect(create).toHaveBeenCalledTimes(3);
     expect((await store.getStar(books[0].id))!.generationCount).toBe(2);
+  });
+
+  test("the quota shows what is left today, and nothing for an admin", async () => {
+    const book = (await store.getBookshelf()).books.find((b) => b.logCount > 0)!;
+    const tonight = new Date("2026-11-10T14:30:00Z");
+
+    expect(await getStarQuota(store, tonight)).toEqual({ isUnlimited: false, remainingToday: 1 });
+    await generateStar(store, llm, book.id, tonight);
+    expect(await getStarQuota(store, tonight)).toEqual({ isUnlimited: false, remainingToday: 0 });
+
+    demo.roles.set(DEMO_USER_ID, "admin");
+    expect((await getStarQuota(store, tonight)).isUnlimited).toBe(true);
   });
 
   test("one STAR a day per user, across books, before calling the model", async () => {

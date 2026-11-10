@@ -15,9 +15,13 @@ const CHANGE_LABELS: Record<ChangeCategory, string> = {
 
 const SESSION_HINT = "질문 3개면 끝나요. 오늘 자정까지 답할 수 있어요.";
 
+/** Free-tier notice shown before a round starts, so the cap is not a surprise. Admins never see it. */
+export const LIMIT_HINT = "AI 정리는 하루 한 번이에요. 세 질문에 차분히 답해 주세요.";
+
 /** Says which book the answers go to, and how to switch when the user moved to another project. */
-function sessionHint(book: string): string {
-  return `${SESSION_HINT}\n📕 '${book}' 책에 넣을게요. 다른 프로젝트였다면 마지막 카드에서 [프로젝트 변경]을, 앞으로 계속 바꾸려면 /project 를 보내 주세요.`;
+function sessionHint(book: string, isLimited: boolean): string {
+  const limit = isLimited ? `\n${LIMIT_HINT}` : "";
+  return `${SESSION_HINT}${limit}\n📕 '${book}' 책에 넣을게요. 다른 프로젝트였다면 마지막 카드에서 [프로젝트 변경]을, 앞으로 계속 바꾸려면 /project 를 보내 주세요.`;
 }
 
 export const QUESTIONS: Record<SessionStep, string> = {
@@ -42,9 +46,10 @@ export const MESSAGES = {
     `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
   telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
   telegramCooldown: "이 텔레그램 계정은 오늘 다른 계정에서 연결을 해제했어요. 내일(한국 시간 자정 이후) 다시 연결해 주세요.",
-  help: (appUrl: string) =>
+  help: (appUrl: string, isLimited = true) =>
     "이력서랍 사용법\n" +
     "• 정해진 시간에 질문 3개가 와요. 답하면 기밀을 가린 카드가 오고, [저장]을 누르면 서랍에 들어가요.\n" +
+    (isLimited ? "• 무료 이용 한도: AI 기록 정리 하루 1회, STAR 정리 하루 1회(책마다 1회)\n" : "") +
     "• /record — 지금 기록하기\n" +
     "• /project — 현재 프로젝트 바꾸기\n" +
     "• /project 이름 — 새 프로젝트를 만들고 현재 프로젝트로 지정\n" +
@@ -72,8 +77,9 @@ export const MESSAGES = {
   cancelled: "취소했어요. 아무것도 저장하지 않았어요.",
   expired: "만료된 카드예요. 다시 보내 주세요.",
   pickProject: "어느 프로젝트에 넣을까요?",
-  sessionNotify: (book: string) => `오늘 한 일, 서랍에 넣어두세요 🗄️\n${sessionHint(book)}\n\n${QUESTIONS[1]}`,
-  sessionUser: (book: string) => `기록을 시작할게요 🗄️\n${sessionHint(book)}\n\n${QUESTIONS[1]}`,
+  sessionNotify: (book: string, isLimited = true) =>
+    `오늘 한 일, 서랍에 넣어두세요 🗄️\n${sessionHint(book, isLimited)}\n\n${QUESTIONS[1]}`,
+  sessionUser: (book: string, isLimited = true) => `기록을 시작할게요 🗄️\n${sessionHint(book, isLimited)}\n\n${QUESTIONS[1]}`,
   sessionResume: "진행 중인 기록이 있어요. 이어서 답해 주세요.",
   outsideSession: "지금은 기록 시간이 아니에요.\n오늘 한 일을 남기려면 아래 버튼을 눌러 주세요.",
   dailyLimit:

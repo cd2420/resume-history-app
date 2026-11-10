@@ -60,7 +60,9 @@ export async function openRecording(
   }
   await telegram.sendMessage(
     chatId,
-    source === "notify" ? MESSAGES.sessionNotify(project.title) : MESSAGES.sessionUser(project.title),
+    source === "notify"
+      ? MESSAGES.sessionNotify(project.title, !isUnlimited(role))
+      : MESSAGES.sessionUser(project.title, !isUnlimited(role)),
   );
   return "opened";
 }

@@ -9,7 +9,7 @@ import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
 import { StarSummary } from "~/features/drawer/components/StarSummary";
 import { GeneralizeError } from "~/features/drawer/generalize.server";
 import { MAX_STAR_TEXT } from "~/features/drawer/star";
-import { generateStar, saveStar, StarError, type StarFailure } from "~/features/drawer/star.server";
+import { generateStar, getStarQuota, saveStar, StarError, type StarFailure } from "~/features/drawer/star.server";
 import { getLlm } from "~/lib/llm.server";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { TagChips } from "~/features/drawer/components/TagChips";
@@ -73,9 +73,13 @@ async function loadBook(request: Request, bookId: string) {
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { session, detail } = await loadBook(request, params.bookId);
-  const [{ shelves }, star] = await Promise.all([session.store.getBookshelf(), session.store.getStar(detail.book.id)]);
+  const [{ shelves }, star, starQuota] = await Promise.all([
+    session.store.getBookshelf(),
+    session.store.getStar(detail.book.id),
+    getStarQuota(session.store),
+  ]);
   // Today in KST from the server, so the date picker never defaults to the browser's timezone.
-  return data({ ...detail, shelves, star, isDemo: session.isDemo, today: kstDate(new Date()) }, { headers: session.headers });
+  return data({ ...detail, shelves, star, starQuota, isDemo: session.isDemo, today: kstDate(new Date()) }, { headers: session.headers });
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -212,7 +216,7 @@ function monthLabel(month: string) {
 }
 
 export default function Book({ loaderData, actionData }: Route.ComponentProps) {
-  const { book, logs, shelves, star, isDemo, today } = loaderData;
+  const { book, logs, shelves, star, starQuota, isDemo, today } = loaderData;
   const busy = useNavigation().state !== "idle";
   const months = groupByMonth(logs);
   const shelfName = shelves.find((shelf) => shelf.id === book.shelfId)?.name ?? NEW_SHELF_LABEL;
@@ -308,7 +312,7 @@ export default function Book({ loaderData, actionData }: Route.ComponentProps) {
         </header>
 
         <Flash error={actionData?.error} done={actionData?.done} />
-        <StarSummary star={star} logs={logs} busy={busy} />
+        <StarSummary star={star} logs={logs} busy={busy} quota={starQuota} />
         <NewLogForm today={today} busy={busy} created={actionData?.created} />
 
         {logs.length === 0 ? (

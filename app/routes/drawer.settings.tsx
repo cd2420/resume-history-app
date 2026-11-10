@@ -1,4 +1,4 @@
-import { BellRing, CircleCheck, Send, TriangleAlert, UserX } from "lucide-react";
+import { BellRing, CircleCheck, Gauge, Send, TriangleAlert, UserX } from "lucide-react";
 import type { ReactNode } from "react";
 import { data, Form, redirect, useNavigation } from "react-router";
 import { z } from "zod";
@@ -8,6 +8,9 @@ import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { TelegramConnect } from "~/features/drawer/components/TelegramSetup";
 import { ICON, ui } from "~/features/drawer/components/ui";
+import { DAILY_SESSION_LIMIT, DAILY_STAR_LIMIT } from "~/features/drawer/limits";
+import { isUnlimited } from "~/features/drawer/roles";
+import { FREE_STAR_GENERATIONS } from "~/features/drawer/star";
 import { deleteAccount } from "~/features/drawer/deps.server";
 import { DrawerDbError } from "~/features/drawer/drawer.server";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
@@ -41,8 +44,11 @@ export function meta({}: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { store, headers, isDemo } = await requireConsentedSession(request);
-  const [{ telegram, notifyHour }, telegramTerm] = await Promise.all([store.getOverview(), store.getTelegramTerm()]);
-  return data({ telegram, notifyHour, isDemo, telegramTerm, botUsername: getEnv().TELEGRAM_BOT_USERNAME }, { headers });
+  const [{ telegram, notifyHour }, telegramTerm, role] = await Promise.all([store.getOverview(), store.getTelegramTerm(), store.getRole()]);
+  return data(
+    { telegram, notifyHour, isDemo, telegramTerm, botUsername: getEnv().TELEGRAM_BOT_USERNAME, isUnlimited: isUnlimited(role) },
+    { headers },
+  );
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -114,7 +120,7 @@ function Row({ icon, title, description, children }: { icon: ReactNode; title: s
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { telegram, notifyHour, isDemo, botUsername, telegramTerm } = loaderData;
+  const { telegram, notifyHour, isDemo, botUsername, telegramTerm, isUnlimited: hasNoLimits } = loaderData;
   const busy = useNavigation().state !== "idle";
 
   return (
@@ -179,6 +185,27 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
                 저장
               </button>
             </Form>
+          </Row>
+
+          <Row
+            icon={<Gauge {...ICON} aria-hidden className="text-brass" />}
+            title="이용 한도"
+            description="AI를 쓰는 기능은 무료로 하루 횟수가 정해져 있어요. 한국 시간 자정에 다시 채워져요."
+          >
+            {hasNoLimits ? (
+              <p className="text-sm">관리자 계정이라 횟수 제한이 없어요.</p>
+            ) : (
+              <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
+                <dt className="text-muted">텔레그램 기록 AI 정리</dt>
+                <dd className="tabular-nums">하루 {DAILY_SESSION_LIMIT}회 (질문 3개 한 번)</dd>
+                <dt className="text-muted">STAR 정리</dt>
+                <dd className="tabular-nums">
+                  하루 {DAILY_STAR_LIMIT}회, 책마다 {FREE_STAR_GENERATIONS}회
+                </dd>
+                <dt className="text-muted">웹 '기록 직접 쓰기'</dt>
+                <dd>제한 없음 (AI를 쓰지 않아요)</dd>
+              </dl>
+            )}
           </Row>
 
           <Row

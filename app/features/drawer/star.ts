@@ -46,3 +46,10 @@ export function draftFields(draft: StarDraft): StarFields {
 export function isEdited(draft: StarDraft, fields: StarFields): boolean {
   return STAR_FIELDS.some((field) => draft[field].text.trim() !== fields[field].trim());
 }
+
+/** What the STAR panel tells the user before they press the button. */
+export interface StarQuota {
+  isUnlimited: boolean;
+  /** null when there is no cap (admins). */
+  remainingToday: number | null;
+}

@@ -13,6 +13,7 @@ import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "./limits";
 import { cardKeyboard, MESSAGES, QUESTIONS, recordButton, renderCard } from "./messages";
 import { answerQuestion, openRecording, skipQuestion } from "./record.server";
 import type { DrawerRepo, LinkResult, Pending, ProjectSummary, TelegramLink } from "./repo";
+import { isUnlimited } from "./roles";
 
 export { MESSAGES, renderCard };
 
@@ -87,7 +88,7 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
   if (link.blocked) await repo.clearBlocked(link.userId);
 
   if (command === "/start" || command === "/help") {
-    await telegram.sendMessage(chatId, MESSAGES.help(appUrl));
+    await telegram.sendMessage(chatId, MESSAGES.help(appUrl, !isUnlimited(await repo.getRole(link.userId))));
     return;
   }
   if (command === "/project") {
@@ -99,7 +100,7 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
     return;
   }
   if (command.startsWith("/")) {
-    await telegram.sendMessage(chatId, MESSAGES.help(appUrl));
+    await telegram.sendMessage(chatId, MESSAGES.help(appUrl, !isUnlimited(await repo.getRole(link.userId))));
     return;
   }
   if (!text) return;

@@ -14,7 +14,7 @@ import { type DrawerLlmClient, GeneralizeError, requestJson } from "./generalize
 import { DAILY_STAR_LIMIT } from "./limits";
 import { isUnlimited } from "./roles";
 import { STAR_PROMPT } from "./prompts";
-import { FREE_STAR_GENERATIONS, MAX_STAR_TEXT, STAR_FIELDS, type StarDraft, type StarFields, type StarPart, isEdited } from "./star";
+import { FREE_STAR_GENERATIONS, MAX_STAR_TEXT, STAR_FIELDS, type StarDraft, type StarFields, type StarPart, isEdited, type StarQuota } from "./star";
 
 // Reasoning tokens count toward this cap; a STAR is longer than a daily log.
 const STAR_MAX_TOKENS = 8000;
@@ -53,6 +53,13 @@ function toPart(raw: z.infer<typeof starPartSchema>, idByRef: Map<string, string
   const evidence = [...new Set(raw.evidence.map((ref) => idByRef.get(ref.trim())).filter((id) => id !== undefined))];
   const gaps = [...new Set(raw.gaps.map((gap) => gap.trim()).filter(Boolean))].slice(0, MAX_GAPS);
   return { text, evidence, gaps };
+}
+
+/** STARs the user may still make today, read from the same caps generateStar enforces. */
+export async function getStarQuota(store: DrawerWebStore, now: Date = new Date()): Promise<StarQuota> {
+  const [role, today] = await Promise.all([store.getRole(), store.countStarsSince(kstStartOfDay(now))]);
+  if (isUnlimited(role)) return { isUnlimited: true, remainingToday: null };
+  return { isUnlimited: false, remainingToday: Math.max(0, DAILY_STAR_LIMIT - today) };
 }
 
 /** Ends the book and stores a fresh draft. Throws StarError or GeneralizeError (model failure). */
