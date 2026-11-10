@@ -5,6 +5,7 @@ import {
   formatPeriod,
   groupByMonth,
   hasFilters,
+  isLoggableDate,
   monthBounds,
   parseSearchFilters,
   sortBooks,
@@ -70,5 +71,18 @@ describe("formatPeriod", () => {
     expect(formatPeriod({ firstLog: "2024-07-01", lastLog: "2024-12-20", isCurrent: false })).toBe("24.07 ~ 24.12");
     expect(formatPeriod({ firstLog: "2024-07-01", lastLog: "2024-07-20", isCurrent: false })).toBe("24.07");
     expect(formatPeriod({ firstLog: null, lastLog: null, isCurrent: false })).toBe("기록 없음");
+  });
+});
+
+describe("isLoggableDate", () => {
+  test("accepts today and past days", () => {
+    expect(isLoggableDate("2026-11-10", "2026-11-10")).toBe(true);
+    expect(isLoggableDate("2025-01-31", "2026-11-10")).toBe(true);
+  });
+
+  test("refuses future days and dates that do not exist", () => {
+    expect(isLoggableDate("2026-11-11", "2026-11-10")).toBe(false);
+    expect(isLoggableDate("2026-02-30", "2026-11-10")).toBe(false);
+    expect(isLoggableDate("20261110", "2026-11-10")).toBe(false);
   });
 });

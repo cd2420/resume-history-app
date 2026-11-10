@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { type BookshelfStore, createSupabaseBookshelf } from "./bookshelf.server";
 import { type ConsentTerm, currentTerms, hasConsentedTo } from "./consent";
 import { createLinkToken, LINK_TOKEN_TTL_MS } from "./link-token.server";
+import { draftFields, type StarDraft, type StarFields, type StarSummary } from "./star";
 
 const LOG_LIMIT = 300;
 
@@ -159,6 +160,95 @@ export async function setCurrentProject(supabase: SupabaseClient, userId: string
   );
 }
 
+// Written on the web: saved as typed (no AI), untagged until "태그 채우기". The composite FK
+// (project_id, user_id) refuses another user's book.
+export async function createLog(supabase: SupabaseClient, userId: string, projectId: string, logDate: string, content: string) {
+  checkWrite(
+    "createLog",
+    await supabase
+      .from("daily_logs")
+      .insert({ user_id: userId, project_id: projectId, log_date: logDate, content, source: "web" }),
+  );
+}
+
+interface StarRow {
+  generated: StarDraft;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+  status: "draft" | "saved";
+  edited: boolean;
+  generation_count: number;
+  generated_at: string;
+  saved_at: string | null;
+}
+
+export async function getStar(supabase: SupabaseClient, userId: string, projectId: string): Promise<StarSummary | null> {
+  const row = checkMaybe(
+    "getStar",
+    await supabase
+      .from("star_summaries")
+      .select("generated, situation, task, action, result, status, edited, generation_count, generated_at, saved_at")
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .maybeSingle<StarRow>(),
+  );
+  if (!row) return null;
+  return {
+    generated: row.generated,
+    fields: { situation: row.situation, task: row.task, action: row.action, result: row.result },
+    status: row.status,
+    edited: row.edited,
+    generationCount: row.generation_count,
+    generatedAt: row.generated_at,
+    savedAt: row.saved_at,
+  };
+}
+
+export async function putStarDraft(supabase: SupabaseClient, userId: string, projectId: string, draft: StarDraft, count: number) {
+  const now = new Date().toISOString();
+  checkWrite(
+    "putStarDraft",
+    await supabase.from("star_summaries").upsert({
+      project_id: projectId,
+      user_id: userId,
+      generated: draft,
+      ...draftFields(draft),
+      status: "draft",
+      edited: false,
+      generation_count: count,
+      generated_at: now,
+      saved_at: null,
+    }),
+  );
+  // The first summary marks the project as finished; regenerating keeps the original end date.
+  checkWrite(
+    "putStarDraft.end",
+    await supabase.from("projects").update({ ended_at: now }).eq("user_id", userId).eq("id", projectId).is("ended_at", null),
+  );
+  // An ended book stops being the bot's current book; the bot then asks for a new one.
+  checkWrite(
+    "putStarDraft.current",
+    await supabase
+      .from("profiles")
+      .update({ current_project_id: null })
+      .eq("user_id", userId)
+      .eq("current_project_id", projectId),
+  );
+}
+
+export async function saveStarFields(supabase: SupabaseClient, userId: string, projectId: string, fields: StarFields, edited: boolean) {
+  checkWrite(
+    "saveStar",
+    await supabase
+      .from("star_summaries")
+      .update({ ...fields, status: "saved", edited, saved_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("project_id", projectId),
+  );
+}
+
 // Web edits are saved as typed, like the bot's [수정] flow.
 export async function updateLog(supabase: SupabaseClient, userId: string, logId: string, content: string) {
   checkWrite(
@@ -183,6 +273,11 @@ export interface DrawerWebStore extends BookshelfStore {
   createProject(title: string): Promise<void>;
   renameProject(projectId: string, title: string): Promise<void>;
   setCurrentProject(projectId: string): Promise<void>;
+  createLog(projectId: string, logDate: string, content: string): Promise<void>;
+  getStar(projectId: string): Promise<StarSummary | null>;
+  /** Stores a fresh generated draft (replacing any earlier one) and marks the book ended. */
+  putStarDraft(projectId: string, draft: StarDraft, generationCount: number): Promise<void>;
+  saveStar(projectId: string, fields: StarFields, edited: boolean): Promise<void>;
   updateLog(logId: string, content: string): Promise<void>;
   deleteLog(logId: string): Promise<void>;
 }
@@ -200,6 +295,10 @@ export function createSupabaseWebStore(supabase: SupabaseClient, userId: string)
     createProject: (title) => createProject(supabase, userId, title),
     renameProject: (projectId, title) => renameProject(supabase, userId, projectId, title),
     setCurrentProject: (projectId) => setCurrentProject(supabase, userId, projectId),
+    createLog: (projectId, logDate, content) => createLog(supabase, userId, projectId, logDate, content),
+    getStar: (projectId) => getStar(supabase, userId, projectId),
+    putStarDraft: (projectId, draft, count) => putStarDraft(supabase, userId, projectId, draft, count),
+    saveStar: (projectId, fields, edited) => saveStarFields(supabase, userId, projectId, fields, edited),
     updateLog: (logId, content) => updateLog(supabase, userId, logId, content),
     deleteLog: (logId) => deleteLog(supabase, userId, logId),
   };

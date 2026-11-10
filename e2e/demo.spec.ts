@@ -197,3 +197,57 @@ test("demo: saving an interview draft lands on the bookshelf", async ({ page }) 
   await settled(page);
   await expect(shelf(page, "새로 꽂힌 책").getByRole("link", { name: "인터뷰로 복원한 프로젝트 열기" })).toBeVisible();
 });
+
+test("demo: a log written on the web lands in the book, also the first one of an empty book", async ({ page }) => {
+  await signInFresh(page);
+  await page.getByLabel("새 책 이름").fill("웹으로 쓰는 책");
+  await page.getByRole("button", { name: "책 만들기" }).click();
+  await settled(page);
+  await page.getByRole("link", { name: "웹으로 쓰는 책 열기" }).click();
+  await settled(page);
+  await expect(page.getByText("아직 기록이 없어요")).toBeVisible();
+
+  await page.getByText("✏️ 기록 직접 쓰기").click();
+  await page.getByLabel("새 기록 내용").fill("정산 배치 재시도 정책을 정리했어요");
+  await page.getByRole("button", { name: "기록 넣기" }).click();
+
+  await expect(page.getByRole("status")).toContainText("기록을 넣었어요");
+  await expect(page.getByTestId("log")).toHaveCount(1);
+  await expect(page.getByTestId("log").first()).toContainText("정산 배치 재시도 정책을 정리했어요");
+  await expect(page.getByLabel("새 기록 내용")).toHaveValue("");
+});
+
+test("demo: deleting the account signs out and wipes the data", async ({ page }) => {
+  await signInFresh(page);
+  await page.goto("/drawer/settings");
+  await settled(page);
+  await page.getByRole("button", { name: "회원 탈퇴" }).click();
+  await page.getByRole("button", { name: "탈퇴하기" }).click();
+  await expect(page).toHaveURL(/\/login\?deleted=1$/);
+  await expect(page.getByRole("status")).toContainText("탈퇴했어요");
+  await page.goto("/drawer");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("demo: ending a project turns its logs into a STAR summary with blanks and evidence", async ({ page }) => {
+  await signInFresh(page);
+  await page.getByRole("link", { name: "결제 시스템 개편 열기" }).click();
+  await settled(page);
+
+  const summary = page.getByRole("region", { name: "STAR 요약" });
+  await summary.getByRole("button", { name: "프로젝트 끝내고 STAR 정리" }).click();
+
+  await expect(page.getByRole("status")).toContainText("STAR를 정리했어요");
+  await expect(summary.getByTestId("star-status")).toContainText("초안");
+  await expect(summary.getByLabel("R · 결과")).toHaveValue(/\[빈칸: 개선 전후 응답 시간\]/);
+  await expect(summary.getByText("빈칸: 개선 전후 응답 시간", { exact: true })).toBeVisible();
+  await expect(summary.getByText("근거:").first()).toBeVisible();
+  await expect(page.getByText("📘 완결")).toBeVisible();
+
+  await summary.getByLabel("R · 결과").fill("응답 지연이 줄어 결제 실패가 감소했다.");
+  await summary.getByRole("button", { name: "이대로 저장" }).click();
+
+  await expect(page.getByRole("status")).toContainText("STAR를 저장했어요");
+  await expect(summary.getByTestId("star-status")).toContainText("저장됨");
+  await expect(summary.getByLabel("R · 결과")).toHaveValue("응답 지연이 줄어 결제 실패가 감소했다.");
+});

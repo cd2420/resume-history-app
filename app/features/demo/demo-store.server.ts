@@ -8,6 +8,7 @@ import {
 } from "~/features/drawer/bookshelf";
 import type { ConsentTerm } from "~/features/drawer/consent";
 import type { DrawerWebStore } from "~/features/drawer/drawer-web.server";
+import { draftFields, type StarSummary } from "~/features/drawer/star";
 import { FakeDrawerRepo } from "~/features/drawer/fake-repo";
 import { createLinkToken } from "~/features/drawer/link-token.server";
 import { normalizeTags, topTags } from "~/features/drawer/tags";
@@ -53,6 +54,7 @@ function daysAgo(days: number): string {
  */
 export class DemoStore extends FakeDrawerRepo {
   consents = new Set<string>();
+  stars = new Map<string, StarSummary>();
   transcript: TranscriptEntry[] = [];
   telegram = createFakeTelegram((message) => this.recordBot(message));
   private nextEntryId = 1;
@@ -298,6 +300,23 @@ export class DemoStore extends FakeDrawerRepo {
       },
       setCurrentProject: async (projectId) => {
         if (owned(projectId)) this.currentProject.set(userId, projectId);
+      },
+      getStar: async (projectId) => (owned(projectId) ? (this.stars.get(projectId) ?? null) : null),
+      putStarDraft: async (projectId, draft, generationCount) => {
+        const project = owned(projectId);
+        if (!project) return;
+        const generatedAt = new Date().toISOString();
+        this.stars.set(projectId, { generated: draft, fields: draftFields(draft), status: "draft", edited: false, generationCount, generatedAt, savedAt: null });
+        this.ended.add(projectId);
+        if (this.currentProject.get(userId) === projectId) this.currentProject.delete(userId);
+      },
+      saveStar: async (projectId, fields, edited) => {
+        const star = owned(projectId) ? this.stars.get(projectId) : undefined;
+        if (star) this.stars.set(projectId, { ...star, fields, status: "saved", edited, savedAt: new Date().toISOString() });
+      },
+      createLog: async (projectId, logDate, content) => {
+        if (!owned(projectId)) return;
+        this.logs.push({ id: crypto.randomUUID(), userId, projectId, logDate, content, edited: false, tags: [] });
       },
       updateLog: async (logId, content) => {
         const log = ownedLog(logId);

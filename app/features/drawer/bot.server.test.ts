@@ -238,6 +238,25 @@ describe("daily answer", () => {
     expect(repo.sessions).toHaveLength(0);
   });
 
+  test("ended books are left out of /project, and a user whose book ended starts a new one by name", async () => {
+    const ended = withProject(USER_A, "결제 시스템 개편");
+    repo.addProject(USER_A, "정산 배치");
+    // Generating a STAR ends the book and clears it as the current one.
+    repo.ended.add(ended.id);
+    repo.currentProject.delete(USER_A);
+
+    await handleUpdate(deps, text(TG_A, "/project"));
+    expect(telegram.sent.at(-1)?.keyboard?.flat().map((b) => b.text)).toEqual(["정산 배치"]);
+
+    await handleUpdate(deps, text(TG_A, "/record"));
+    expect(lastText()).toBe(MESSAGES.noProject);
+    expect(repo.sessions).toHaveLength(0);
+
+    await handleUpdate(deps, text(TG_A, "주문 시스템 개편"));
+    expect((await repo.getCurrentProject(USER_A))?.title).toBe("주문 시스템 개편");
+    expect(lastText()).toBe(MESSAGES.sessionUser("주문 시스템 개편"));
+  });
+
   test("/project lists projects and a button switches the current one", async () => {
     withProject(USER_A, "결제 시스템 개편");
     const other = repo.addProject(USER_A, "정산 배치");

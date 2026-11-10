@@ -1,18 +1,32 @@
+import { useEffect, useRef } from "react";
 import { data, Form, Link, useNavigation } from "react-router";
 import { z } from "zod";
 
-import { formatPeriod, groupByMonth, MAX_SHELF_NAME, NEW_SHELF_LABEL } from "~/features/drawer/bookshelf";
+import { formatPeriod, groupByMonth, isLoggableDate, MAX_SHELF_NAME, NEW_SHELF_LABEL } from "~/features/drawer/bookshelf";
 import { spineColor } from "~/features/drawer/components/BookCover";
 import { ConfirmDelete } from "~/features/drawer/components/ConfirmDelete";
+import { StarSummary } from "~/features/drawer/components/StarSummary";
+import { GeneralizeError } from "~/features/drawer/generalize.server";
+import { MAX_STAR_GENERATIONS, MAX_STAR_TEXT } from "~/features/drawer/star";
+import { generateStar, saveStar, StarError, type StarFailure } from "~/features/drawer/star.server";
+import { getLlm } from "~/lib/llm.server";
 import { DrawerNav, Flash } from "~/features/drawer/components/DrawerNav";
 import { TagChips } from "~/features/drawer/components/TagChips";
 import { DrawerWebError } from "~/features/drawer/drawer-web.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "~/features/drawer/limits";
 import { requireConsentedSession } from "~/features/drawer/session.server";
 import { formatTagInput, MAX_TAGS, normalizeTags, parseTagInput } from "~/features/drawer/tags";
+import { kstDate } from "~/lib/kst";
 import type { Route } from "./+types/drawer.books.$bookId";
 
 const uuid = z.uuid();
+const starText = z.string().trim().min(1).max(MAX_STAR_TEXT);
+
+const STAR_ERRORS: Record<StarFailure, string> = {
+  not_found: "정리할 책을 찾지 못했어요.",
+  no_logs: "기록이 있어야 STAR로 정리할 수 있어요.",
+  limit: `이 책은 STAR를 ${MAX_STAR_GENERATIONS}번까지만 만들 수 있어요.`,
+};
 
 const actionSchema = z.discriminatedUnion("intent", [
   z.object({ intent: z.literal("rename_book"), title: z.string().trim().min(1).max(MAX_PROJECT_TITLE) }),
@@ -21,9 +35,22 @@ const actionSchema = z.discriminatedUnion("intent", [
   z.object({ intent: z.literal("update_log"), logId: uuid, content: z.string().trim().min(1).max(MAX_LOG_LENGTH) }),
   z.object({ intent: z.literal("update_tags"), logId: uuid, tags: z.string().max(400) }),
   z.object({ intent: z.literal("delete_log"), logId: uuid }),
+  z.object({ intent: z.literal("generate_star") }),
+  z.object({
+    intent: z.literal("save_star"),
+    situation: starText,
+    task: starText,
+    action: starText,
+    result: starText,
+  }),
+  z.object({
+    intent: z.literal("create_log"),
+    logDate: z.string().refine((date) => isLoggableDate(date, kstDate(new Date())), "오늘이나 지난 날짜만 고를 수 있어요."),
+    content: z.string().trim().min(1).max(MAX_LOG_LENGTH),
+  }),
 ]);
 
-type ActionResult = { error?: string; done?: string };
+type ActionResult = { error?: string; done?: string; created?: boolean };
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: loaderData ? `${loaderData.book.title} · 이력서랍` : "이력서랍" }];
@@ -38,8 +65,9 @@ async function loadBook(request: Request, bookId: string) {
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { session, detail } = await loadBook(request, params.bookId);
-  const { shelves } = await session.store.getBookshelf();
-  return data({ ...detail, shelves, isDemo: session.isDemo }, { headers: session.headers });
+  const [{ shelves }, star] = await Promise.all([session.store.getBookshelf(), session.store.getStar(detail.book.id)]);
+  // Today in KST from the server, so the date picker never defaults to the browser's timezone.
+  return data({ ...detail, shelves, star, isDemo: session.isDemo, today: kstDate(new Date()) }, { headers: session.headers });
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -70,8 +98,24 @@ export async function action({ request, params }: Route.ActionArgs) {
       case "delete_log":
         await store.deleteLog(input.logId);
         return data<ActionResult>({ done: "기록을 지웠어요." }, { headers });
+      case "create_log":
+        await store.createLog(bookId, input.logDate, input.content);
+        return data<ActionResult>({ done: "기록을 넣었어요.", created: true }, { headers });
+      case "generate_star":
+        await generateStar(store, getLlm(), bookId);
+        return data<ActionResult>({ done: "STAR를 정리했어요. 빈칸과 근거를 확인하고 저장해 주세요." }, { headers });
+      case "save_star": {
+        const { intent: _intent, ...fields } = input;
+        await saveStar(store, bookId, fields);
+        return data<ActionResult>({ done: "STAR를 저장했어요." }, { headers });
+      }
     }
   } catch (error) {
+    if (error instanceof StarError) return data<ActionResult>({ error: STAR_ERRORS[error.reason] }, { status: 400, headers });
+    if (error instanceof GeneralizeError) {
+      console.error("star generation failed", error.reason);
+      return data<ActionResult>({ error: "지금은 정리하지 못했어요. 잠시 뒤 다시 시도해 주세요." }, { status: 502, headers });
+    }
     if (!(error instanceof DrawerWebError)) throw error;
     console.error("book action failed", input.intent, error.code ?? "");
     return data<ActionResult>({ error: "저장하지 못했어요. 잠시 후 다시 시도해 주세요." }, { status: 500, headers });
@@ -82,12 +126,46 @@ const input = "min-w-0 rounded bg-slate-900 px-3 py-2 text-sm";
 const button = "shrink-0 whitespace-nowrap rounded bg-sky-600 px-3 py-2 text-sm font-semibold disabled:opacity-50";
 const subtle = "shrink-0 whitespace-nowrap rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50";
 
+function NewLogForm({ today, busy, created }: { today: string; busy: boolean; created?: boolean }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  // Clear the form after each successful save so the next entry starts empty.
+  useEffect(() => {
+    if (created) formRef.current?.reset();
+  }, [created]);
+
+  return (
+    <details className="rounded bg-slate-800 p-3">
+      <summary className="cursor-pointer text-sm font-semibold">✏️ 기록 직접 쓰기</summary>
+      <Form ref={formRef} method="post" className="mt-3 flex flex-col gap-2">
+        <input type="hidden" name="intent" value="create_log" />
+        <label className="flex w-fit flex-col gap-1">
+          <span className="text-xs text-slate-400">날짜</span>
+          <input type="date" name="logDate" defaultValue={today} max={today} required className={input} />
+        </label>
+        <textarea
+          name="content"
+          rows={4}
+          maxLength={MAX_LOG_LENGTH}
+          required
+          aria-label="새 기록 내용"
+          placeholder={"오늘 한 일, 내가 맡거나 결정한 것, 결과를 적어 주세요.\n예) 결제 API 응답 지연 원인을 찾아 캐시를 제안했어요. 응답 시간이 절반으로 줄었어요."}
+          className={`${input} w-full`}
+        />
+        <p className="text-xs text-amber-300">⚠️ 쓴 그대로 저장돼요. 고객사명·내부 시스템명·절대 수치는 빼고 써 주세요.</p>
+        <button type="submit" disabled={busy} className={`${button} w-fit`}>
+          기록 넣기
+        </button>
+      </Form>
+    </details>
+  );
+}
+
 function monthLabel(month: string) {
   return `${month.slice(0, 4)}년 ${Number(month.slice(5, 7))}월`;
 }
 
 export default function Book({ loaderData, actionData }: Route.ComponentProps) {
-  const { book, logs, shelves, isDemo } = loaderData;
+  const { book, logs, shelves, star, isDemo, today } = loaderData;
   const busy = useNavigation().state !== "idle";
   const months = groupByMonth(logs);
   const shelfName = shelves.find((shelf) => shelf.id === book.shelfId)?.name ?? NEW_SHELF_LABEL;
@@ -106,6 +184,7 @@ export default function Book({ loaderData, actionData }: Route.ComponentProps) {
             <h1 className="text-2xl font-bold break-keep">{book.title}</h1>
             <p className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
               {book.isCurrent && <span className="rounded-full bg-sky-600 px-2 py-0.5 text-xs font-semibold text-white">● 진행 중</span>}
+              {star && <span className="rounded-full bg-emerald-800 px-2 py-0.5 text-xs font-semibold text-white">📘 완결</span>}
               <span>{formatPeriod(book)}</span>
               <span>· 기록 {book.logCount}개</span>
               <span>· 📇 {shelfName}</span>
@@ -148,9 +227,13 @@ export default function Book({ loaderData, actionData }: Route.ComponentProps) {
         </header>
 
         <Flash error={actionData?.error} done={actionData?.done} />
+        <StarSummary star={star} logs={logs} busy={busy} />
+        <NewLogForm today={today} busy={busy} created={actionData?.created} />
 
         {logs.length === 0 ? (
-          <p className="rounded bg-slate-800 p-4 text-sm text-slate-300">아직 기록이 없어요. 현재 프로젝트로 정하고 텔레그램으로 보내 보세요.</p>
+          <p className="rounded bg-slate-800 p-4 text-sm text-slate-300">
+            아직 기록이 없어요. 위에서 직접 쓰거나, 현재 프로젝트로 정하고 텔레그램으로 보내 보세요.
+          </p>
         ) : (
           <div className="flex flex-col gap-4 md:grid md:grid-cols-[9rem_1fr] md:items-start">
             <nav aria-label="목차" className="md:sticky md:top-4">

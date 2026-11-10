@@ -33,6 +33,8 @@ export class FakeDrawerRepo implements DrawerRepo {
   links: Link[] = [];
   projects: (ProjectSummary & { userId: string; shelfId?: string | null; createdAt?: number })[] = [];
   currentProject = new Map<string, string>();
+  /** Project ids with a STAR summary (projects.ended_at set). */
+  ended = new Set<string>();
   notifyHour = new Map<string, number>();
   pendings: Pending[] = [];
   logs: FakeLog[] = [];
@@ -86,7 +88,9 @@ export class FakeDrawerRepo implements DrawerRepo {
   }
 
   async listProjects(userId: string) {
-    return this.projects.filter((p) => p.userId === userId).map(({ id, title }) => ({ id, title }));
+    return this.projects
+      .filter((p) => p.userId === userId && !this.ended.has(p.id))
+      .map(({ id, title }) => ({ id, title }));
   }
 
   async getProject(userId: string, projectId: string) {

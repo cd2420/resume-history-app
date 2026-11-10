@@ -76,7 +76,8 @@ function withExistingTags(prompt: string, existingTags: readonly string[]): stri
   return known.length ? `${prompt}\n\n사용자가 이미 쓰는 태그: ${known.join(", ")}` : prompt;
 }
 
-async function requestJson(llm: DrawerLlmClient, body: CreateParams): Promise<unknown> {
+/** Calls the Responses API and returns the parsed JSON output, mapping every failure to GeneralizeError. */
+export async function requestJson(llm: DrawerLlmClient, body: CreateParams): Promise<unknown> {
   let response: ResponseResult;
   try {
     response = await llm.responses.create(body);

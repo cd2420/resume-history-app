@@ -145,11 +145,13 @@ export function createDrawerRepo(admin: SupabaseClient): DrawerRepo {
       return data?.current_project_id ? this.getProject(userId, data.current_project_id) : null;
     },
 
+    // Ended books (a STAR was made) are not offered for new answers.
     async listProjects(userId) {
       const { data, error } = await admin
         .from("projects")
         .select("id, title")
         .eq("user_id", userId)
+        .is("ended_at", null)
         .order("created_at", { ascending: false });
       if (error) fail("listProjects", error);
       return data;

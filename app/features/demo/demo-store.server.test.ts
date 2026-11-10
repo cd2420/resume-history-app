@@ -109,3 +109,25 @@ describe("fillMissingTags", () => {
     error.mockRestore();
   });
 });
+
+describe("web logs", () => {
+  test("a log written on the web lands in the user's own book as typed, untagged", async () => {
+    const book = (await store.getBookshelf()).books.find((b) => b.title === "결제 시스템 개편")!;
+
+    await store.createLog(book.id, "2026-11-09", "정산 배치 재시도 정책을 정리했어요");
+
+    const log = demo.logs.at(-1)!;
+    expect(log).toMatchObject({ userId: DEMO_USER_ID, projectId: book.id, logDate: "2026-11-09", content: "정산 배치 재시도 정책을 정리했어요", edited: false, tags: [] });
+  });
+
+  test("another user's book cannot receive a log", async () => {
+    const foreign = demo.webStoreFor(OTHER);
+    await foreign.createProject("남의 책");
+    const foreignBook = (await foreign.getBookshelf()).books[0];
+    const before = demo.logs.length;
+
+    await store.createLog(foreignBook.id, "2026-11-09", "끼워 넣기");
+
+    expect(demo.logs).toHaveLength(before);
+  });
+});
