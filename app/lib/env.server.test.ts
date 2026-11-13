@@ -14,6 +14,12 @@ describe("parseEnv", () => {
     expect(env.isFakeLlm).toBe(false);
   });
 
+  test("Telegram login buttons only on the production deployment", () => {
+    expect(parseEnv(VALID_ENV).telegramLogin).toBe(false);
+    expect(parseEnv({ ...VALID_ENV, VERCEL_ENV: "preview" }).telegramLogin).toBe(false);
+    expect(parseEnv({ ...VALID_ENV, VERCEL_ENV: "production" }).telegramLogin).toBe(true);
+  });
+
   test("throws listing every missing variable name", () => {
     expect(() => parseEnv({})).toThrow(
       /OPENAI_API_KEY.*SUPABASE_URL.*SUPABASE_ANON_KEY/,

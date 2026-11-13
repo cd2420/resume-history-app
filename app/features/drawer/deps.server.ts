@@ -34,6 +34,7 @@ export function getBotDeps(): BotDeps {
     llm: getLlm(),
     now: () => new Date(),
     appUrl: getEnv().APP_URL,
+    telegramLogin: getEnv().telegramLogin,
   };
 }
 

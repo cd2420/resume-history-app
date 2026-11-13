@@ -171,7 +171,16 @@ export default function DemoBot({ loaderData, actionData }: Route.ComponentProps
                   </p>
                   {entry.keyboard?.map((row, rowIndex) => (
                     <div key={rowIndex} className="flex gap-1">
-                      {row.map((button) => (
+                      {row.map((button) =>
+                        !("callback_data" in button) ? (
+                          <a
+                            key={button.text}
+                            href={button.login_url.url}
+                            className="flex-1 rounded bg-slate-700 px-2 py-1.5 text-center text-sm text-sky-300"
+                          >
+                            {button.text}
+                          </a>
+                        ) : (
                         <Form key={button.callback_data} method="post" className="flex-1">
                           <input type="hidden" name="intent" value="press" />
                           <input type="hidden" name="data" value={button.callback_data} />
@@ -185,7 +194,8 @@ export default function DemoBot({ loaderData, actionData }: Route.ComponentProps
                             {button.text}
                           </button>
                         </Form>
-                      ))}
+                        ),
+                      )}
                     </div>
                   ))}
                 </div>

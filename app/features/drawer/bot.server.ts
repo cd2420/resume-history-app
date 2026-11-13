@@ -10,7 +10,7 @@ import type { DrawerLlmClient } from "./generalize.server";
 import { callbackData, parseCallbackData } from "./ids";
 import { hashLinkToken, isLinkTokenShape } from "./link-token.server";
 import { MAX_LOG_LENGTH, MAX_PROJECT_TITLE } from "./limits";
-import { cardKeyboard, MESSAGES, QUESTIONS, recordButton, renderCard } from "./messages";
+import { cardKeyboard, MESSAGES, QUESTIONS, recordButton, renderCard, webLoginKeyboard } from "./messages";
 import { answerQuestion, openRecording, skipQuestion } from "./record.server";
 import type { DrawerRepo, LinkResult, Pending, ProjectSummary, TelegramLink } from "./repo";
 import { isUnlimited } from "./roles";
@@ -23,6 +23,8 @@ export interface BotDeps {
   llm: DrawerLlmClient;
   now: () => Date;
   appUrl: string;
+  /** Send web links as Telegram login buttons (production only, see env.telegramLogin). */
+  telegramLogin?: boolean;
 }
 
 const PROJECT_LIST_LIMIT = 20;
@@ -59,8 +61,14 @@ async function handleMembership({ repo }: BotDeps, update: TelegramChatMemberUpd
 }
 
 async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUserId: number, text: string) {
-  const { repo, telegram, appUrl } = deps;
+  const { repo, telegram, appUrl, telegramLogin = false } = deps;
   const chatId = message.chat.id;
+  const sendHelp = async (userId: string) =>
+    telegram.sendMessage(
+      chatId,
+      MESSAGES.help(appUrl, !isUnlimited(await repo.getRole(userId)), telegramLogin),
+      telegramLogin ? webLoginKeyboard(appUrl, "drawer") : undefined,
+    );
   const [command, ...args] = text.split(/\s+/);
   const argText = text.slice(command.length).trim();
 
@@ -70,13 +78,13 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
       ? await repo.linkTelegram(hashLinkToken(token), telegramUserId, chatId)
       : "invalid";
     const replies: Record<LinkResult, string> = {
-      linked: MESSAGES.linked(appUrl),
+      linked: MESSAGES.linked(appUrl, telegramLogin),
       telegram_taken: MESSAGES.telegramTaken,
       telegram_cooldown: MESSAGES.telegramCooldown,
       invalid: MESSAGES.linkInvalid(appUrl),
     };
-    const reply = replies[result];
-    await telegram.sendMessage(chatId, reply);
+    const keyboard = result === "linked" && telegramLogin ? webLoginKeyboard(appUrl, "settings") : undefined;
+    await telegram.sendMessage(chatId, replies[result], keyboard);
     return;
   }
 
@@ -88,7 +96,7 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
   if (link.blocked) await repo.clearBlocked(link.userId);
 
   if (command === "/start" || command === "/help") {
-    await telegram.sendMessage(chatId, MESSAGES.help(appUrl, !isUnlimited(await repo.getRole(link.userId))));
+    await sendHelp(link.userId);
     return;
   }
   if (command === "/project") {
@@ -100,7 +108,7 @@ async function handleMessage(deps: BotDeps, message: TelegramMessage, telegramUs
     return;
   }
   if (command.startsWith("/")) {
-    await telegram.sendMessage(chatId, MESSAGES.help(appUrl, !isUnlimited(await repo.getRole(link.userId))));
+    await sendHelp(link.userId);
     return;
   }
   if (!text) return;

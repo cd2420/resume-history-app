@@ -39,21 +39,22 @@ export const SKIP_LABELS: Partial<Record<SessionStep, string>> = {
 export const MESSAGES = {
   notLinked: (appUrl: string) =>
     `먼저 웹에서 가입하고 텔레그램을 연결해 주세요.\n${appUrl}/drawer/settings`,
-  linked: (appUrl: string) =>
-    `연결됐어요! 🗄️\n알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer/settings\n\n` +
+  /** `withButton`: the settings link travels as a Telegram login button instead of a bare URL. */
+  linked: (appUrl: string, withButton = false) =>
+    `연결됐어요! 🗄️\n${withButton ? "알림 시간은 아래 [알림 시간 정하기]에서 정할 수 있어요." : `알림 시간은 웹에서 정할 수 있어요: ${appUrl}/drawer/settings`}\n\n` +
     "지금 어떤 프로젝트를 하고 있나요? 이름만 보내 주세요.\n예) 결제 시스템 개편",
   linkInvalid: (appUrl: string) =>
     `연결 링크가 만료됐거나 이미 쓰였어요. 웹에서 새 링크를 받아 주세요.\n${appUrl}/drawer/settings`,
   telegramTaken: "이 텔레그램 계정은 이미 다른 계정에 연결돼 있어요.",
   telegramCooldown: "이 텔레그램 계정은 오늘 다른 계정에서 연결을 해제했어요. 내일(한국 시간 자정 이후) 다시 연결해 주세요.",
-  help: (appUrl: string, isLimited = true) =>
+  help: (appUrl: string, isLimited = true, withButton = false) =>
     "이력서랍 사용법\n" +
     "• 정해진 시간에 질문 3개가 와요. 답하면 기밀을 가린 카드가 오고, [저장]을 누르면 서랍에 들어가요.\n" +
     (isLimited ? "• 무료 이용 한도: AI 기록 정리 하루 1회, STAR 정리 하루 1회(책마다 1회)\n" : "") +
     "• /record — 지금 기록하기\n" +
     "• /project — 현재 프로젝트 바꾸기\n" +
     "• /project 이름 — 새 프로젝트를 만들고 현재 프로젝트로 지정\n" +
-    `• 책장에서 기록 찾기·수정: ${appUrl}/drawer`,
+    `• 책장에서 기록 찾기·수정: ${withButton ? "아래 [책장 열기]" : `${appUrl}/drawer`}`,
   noProject:
     "지금 기록을 넣을 책이 없어요. 이전 책은 끝났거나 아직 만들지 않았어요.\n" +
     "새로 하는 프로젝트 이름만 보내 주세요.\n예) 결제 시스템 개편\n" +
@@ -90,6 +91,21 @@ export const MESSAGES = {
     "이번 답은 AI가 정리하지 못했어요. AI 정리는 하루 한 번이라 오늘은 다시 시작할 수 없어요.\n웹 책장의 '기록 직접 쓰기'로 남겨 주세요.",
   skipped: "→ 건너뛰었어요",
 } as const;
+
+const WEB_PAGES = {
+  drawer: { label: "책장 열기", path: "" },
+  settings: { label: "알림 시간 정하기", path: "/settings" },
+} as const;
+
+/**
+ * A button that opens a web page signed in. It lands on /auth/telegram/..., which checks
+ * Telegram's signature and redirects to /drawer/...; the path carries the page so the URL
+ * has no query of its own (Telegram signs every query field it appends).
+ */
+export function webLoginKeyboard(appUrl: string, page: keyof typeof WEB_PAGES): InlineKeyboard {
+  const { label, path } = WEB_PAGES[page];
+  return [[{ text: label, login_url: { url: `${appUrl}/auth/telegram${path}` } }]];
+}
 
 export function recordButton(): InlineKeyboard {
   return [[{ text: "지금 기록하기", callback_data: callbackData({ kind: "record" }) }]];

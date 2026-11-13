@@ -10,6 +10,7 @@ export default [
   route("drawer/settings", "routes/drawer.settings.tsx"),
   route("drawer/books/:bookId", "routes/drawer.books.$bookId.tsx"),
   route("drawer/demo-bot", "routes/drawer.demo-bot.tsx"),
+  route("auth/telegram/*", "routes/auth.telegram.ts"),
   route("api/telegram/webhook", "routes/api.telegram.webhook.ts"),
   route("api/cron/notify", "routes/api.cron.notify.ts"),
 ] satisfies RouteConfig;

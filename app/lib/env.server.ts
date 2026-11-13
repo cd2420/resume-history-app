@@ -32,6 +32,11 @@ export type Env = z.infer<typeof envSchema> & {
   isFakeTelegram: boolean;
   /** Demo mode: no Supabase, OpenAI or Telegram; in-memory data and a web bot simulator. */
   isDemo: boolean;
+  /**
+   * Bot messages carry Telegram login buttons (login_url) that sign the user in on the web.
+   * Production only: Telegram accepts them only for the domain set with BotFather /setdomain.
+   */
+  telegramLogin: boolean;
 };
 
 type EnvSource = Record<string, string | undefined>;
@@ -49,6 +54,7 @@ export function parseEnv(source: EnvSource): Env {
     isFakeLlm: result.data.E2E_FAKE_LLM === "1",
     isFakeTelegram: Boolean(result.data.E2E_FAKE_TELEGRAM_OUTBOX),
     isDemo: false,
+    telegramLogin: source.VERCEL_ENV === "production" && !result.data.E2E_FAKE_TELEGRAM_OUTBOX,
   };
 }
 
@@ -69,6 +75,7 @@ function demoEnv(source: EnvSource): Env {
     isFakeLlm: true,
     isFakeTelegram: true,
     isDemo: true,
+    telegramLogin: false,
   };
 }
 

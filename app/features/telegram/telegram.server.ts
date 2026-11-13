@@ -1,10 +1,22 @@
 // Minimal Telegram Bot API client: https://core.telegram.org/bots/api
 // Messages are plain text (no parse_mode) so user content never needs escaping.
 
-export interface InlineButton {
+export interface CallbackButton {
   text: string;
   callback_data: string;
 }
+
+/**
+ * Opens a web page and signs the user in with their Telegram account on the way
+ * (https://core.telegram.org/bots/api#loginurl). The URL's domain must be the one linked
+ * to the bot with BotFather /setdomain, or Telegram rejects the message.
+ */
+export interface LoginUrlButton {
+  text: string;
+  login_url: { url: string };
+}
+
+export type InlineButton = CallbackButton | LoginUrlButton;
 
 export type InlineKeyboard = InlineButton[][];
 

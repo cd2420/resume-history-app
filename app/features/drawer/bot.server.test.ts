@@ -68,7 +68,7 @@ function withProject(userId: string, title = "결제 시스템 개편") {
 async function pressLabel(from: number, label: string) {
   const message = [...telegram.sent].reverse().find((m) => m.keyboard?.flat().some((b) => b.text === label));
   const button = message?.keyboard?.flat().find((b) => b.text === label);
-  if (!message || !button) throw new Error(`no button ${label}`);
+  if (!message || !button || !("callback_data" in button)) throw new Error(`no button ${label}`);
   await handleUpdate(deps, press(from, button.callback_data, message.messageId));
 }
 
@@ -139,6 +139,32 @@ describe("linking", () => {
     repo.tokens.set(forA.tokenHash, { userId: USER_A, used: false, expired: false });
     await handleUpdate(deps, text(TG_A, `/start ${forA.token}`));
     expect(lastText()).toBe(MESSAGES.linked(APP_URL));
+  });
+
+  test("production: links to the web are Telegram login buttons, not bare URLs", async () => {
+    deps.telegramLogin = true;
+    const { token, tokenHash } = createLinkToken();
+    repo.tokens.set(tokenHash, { userId: USER_A, used: false, expired: false });
+
+    await handleUpdate(deps, text(TG_A, `/start ${token}`));
+    const linked = telegram.sent.at(-1)!;
+    expect(linked.text).toBe(MESSAGES.linked(APP_URL, true));
+    expect(linked.text).not.toContain(APP_URL);
+    expect(linked.keyboard).toEqual([
+      [{ text: "알림 시간 정하기", login_url: { url: `${APP_URL}/auth/telegram/settings` } }],
+    ]);
+
+    await handleUpdate(deps, text(TG_A, "/help"));
+    const help = telegram.sent.at(-1)!;
+    expect(help.text).not.toContain(APP_URL);
+    expect(help.keyboard).toEqual([[{ text: "책장 열기", login_url: { url: `${APP_URL}/auth/telegram` } }]]);
+  });
+
+  test("outside production the messages keep plain URLs and no login button", async () => {
+    linkUser(USER_A, TG_A);
+    await handleUpdate(deps, text(TG_A, "/help"));
+    expect(telegram.sent.at(-1)!.text).toContain(`${APP_URL}/drawer`);
+    expect(telegram.sent.at(-1)!.keyboard).toBeUndefined();
   });
 
   test("ignores group chats and bots", async () => {

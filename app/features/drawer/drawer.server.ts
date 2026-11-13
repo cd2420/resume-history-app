@@ -28,6 +28,19 @@ export async function deleteAuthUser(admin: SupabaseClient, userId: string): Pro
   if (error) throw new DrawerDbError("deleteAuthUser", error.code);
 }
 
+/**
+ * One-time sign-in token for a linked Telegram user, verified at once on the server with
+ * verifyOtp. generateLink sends no email. The userId must come from telegram_links.
+ */
+export async function createLoginTokenHash(admin: SupabaseClient, userId: string): Promise<string> {
+  const { data: found, error: findError } = await admin.auth.admin.getUserById(userId);
+  const email = found?.user?.email;
+  if (findError || !email) throw new DrawerDbError("loginToken.user", findError?.code);
+  const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+  if (error || !data.properties?.hashed_token) throw new DrawerDbError("loginToken.link", error?.code);
+  return data.properties.hashed_token;
+}
+
 interface PendingRow {
   id: string;
   user_id: string;
