@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
+import { FAKE_ENTRY, FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
 import { generalize, GeneralizeError, MAX_LOG_LENGTH } from "./generalize.server";
 
 const RAW = "A은행 결제승인 API 응답이 느려서 레디스 캐시 붙임";
@@ -20,7 +20,7 @@ describe("generalize", () => {
   test("returns the generalized text and change categories", async () => {
     const { llm } = llmReturning(fakeResponse(JSON.stringify(FAKE_GENERALIZATION)));
 
-    await expect(generalize(llm, RAW)).resolves.toEqual(FAKE_GENERALIZATION);
+    await expect(generalize(llm, RAW)).resolves.toEqual({ ...FAKE_GENERALIZATION, entry: null });
   });
 
   test("sends store: false, the prompt as instructions and the raw text as user input", async () => {
@@ -111,5 +111,51 @@ describe("generalize", () => {
     await generalize(llm, RAW);
 
     expect(create.mock.calls[0][0].instructions).not.toContain("사용자가 이미 쓰는 태그:");
+  });
+
+  test("each question gets its own editor role on top of the shared rules", async () => {
+    const roles = { 1: "업무 정리 편집자", 2: "기여 분리 편집자", 3: "성과 정리 편집자" } as const;
+    for (const step of [1, 2, 3] as const) {
+      const reply = step === 3 ? { ...FAKE_GENERALIZATION, entry: FAKE_ENTRY } : FAKE_GENERALIZATION;
+      const { llm, create } = llmReturning(fakeResponse(JSON.stringify(reply)));
+
+      await generalize(llm, RAW, [], { step });
+
+      const { instructions } = create.mock.calls[0][0];
+      expect(instructions).toContain("기밀");
+      expect(instructions).toContain(roles[step]);
+      for (const other of Object.values(roles).filter((role) => role !== roles[step])) {
+        expect(instructions).not.toContain(other);
+      }
+    }
+  });
+
+  test("earlier summaries go into the instructions; the user input is only this answer", async () => {
+    const { llm, create } = llmReturning(fakeResponse(JSON.stringify(FAKE_GENERALIZATION)));
+
+    await generalize(llm, "제가 제안했어요", [], { step: 2, previous: { task: "결제 승인 API 응답 지연 원인을 찾음" } });
+
+    const body = create.mock.calls[0][0];
+    expect(body.instructions).toContain("앞 질문 정리");
+    expect(body.instructions).toContain("결제 승인 API 응답 지연 원인을 찾음");
+    expect(body.input).toEqual([{ role: "user", content: "제가 제안했어요" }]);
+  });
+
+  test("question 3 also returns the day's combined entry; earlier questions do not", async () => {
+    const final = llmReturning(fakeResponse(JSON.stringify({ ...FAKE_GENERALIZATION, entry: FAKE_ENTRY })));
+    const first = llmReturning(fakeResponse(JSON.stringify(FAKE_GENERALIZATION)));
+
+    expect((await generalize(final.llm, RAW, [], { step: 3, previous: { task: "a" } })).entry).toBe(FAKE_ENTRY);
+    expect(final.create.mock.calls[0][0].text.format.name).toBe("generalized_entry");
+    expect((await generalize(first.llm, RAW, [], { step: 1 })).entry).toBeNull();
+  });
+
+  test("an empty or over-long combined entry is dropped, not fatal", async () => {
+    for (const entry of ["  ", "가".repeat(MAX_LOG_LENGTH + 1)]) {
+      const { llm } = llmReturning(fakeResponse(JSON.stringify({ ...FAKE_GENERALIZATION, entry })));
+      const result = await generalize(llm, RAW, [], { step: 3 });
+      expect(result.entry).toBeNull();
+      expect(result.generalized).toBe(FAKE_GENERALIZATION.generalized);
+    }
   });
 });

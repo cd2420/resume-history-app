@@ -4,7 +4,7 @@ import { createFakeTelegram } from "~/features/telegram/fake-telegram";
 import type { TelegramUpdate } from "~/features/telegram/update-schema";
 import { type BotDeps, handleUpdate, MESSAGES } from "./bot.server";
 import { LIMIT_HINT } from "./messages";
-import { createFakeDrawerLlm, FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
+import { createFakeDrawerLlm, FAKE_ENTRY, FAKE_GENERALIZATION, fakeResponse } from "./fake-llm";
 import { FakeDrawerRepo } from "./fake-repo";
 import type { DrawerLlmClient } from "./generalize.server";
 import { callbackData } from "./ids";
@@ -405,12 +405,28 @@ describe("recording sessions", () => {
     expect(lastText()).toContain("3/3");
     await handleUpdate(deps, text(TG_A, "응답 시간이 절반으로"));
 
-    const g = FAKE_GENERALIZATION.generalized;
-    expect(repo.pendings[0].generalized).toBe(`${g}\n· 내 역할·이유: ${g}\n· 결과: ${g}`);
+    // Question 3 returns the day's combined entry, which becomes the card.
+    expect(repo.pendings[0].generalized).toBe(FAKE_ENTRY);
     expect(llmCreate).toHaveBeenCalledTimes(3);
+    // Question 2 sees question 1's generalized summary, never its raw text.
+    const second = llmCreate.mock.calls[1][0];
+    expect(second.instructions).toContain(FAKE_GENERALIZATION.generalized);
+    expect(JSON.stringify(second)).not.toContain(RAW);
+    expect(second.input).toEqual([{ role: "user", content: "캐시 도입을 제안했어요" }]);
     expect(repo.sessions[0]).toMatchObject({ status: "carded", aiCalls: 3 });
     expect(lastText()).toContain("📝 이렇게 서랍에 넣을까요?");
     expect(JSON.stringify(repo.sessions)).not.toContain(RAW);
+  });
+
+  test("skipping question 3 falls back to joining the answers", async () => {
+    await handleUpdate(deps, text(TG_A, "/record"));
+    await handleUpdate(deps, text(TG_A, RAW));
+    await handleUpdate(deps, text(TG_A, "캐시 도입을 제안했어요"));
+    await pressLabel(TG_A, "아직 몰라요");
+
+    const g = FAKE_GENERALIZATION.generalized;
+    expect(repo.pendings[0].generalized).toBe(`${g}\n· 내 역할·이유: ${g}`);
+    expect(llmCreate).toHaveBeenCalledTimes(2);
   });
 
   test("skipping optional questions leaves them out of the log", async () => {

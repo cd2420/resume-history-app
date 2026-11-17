@@ -4,11 +4,15 @@ import type { DrawerLlmClient, Generalization } from "./generalize.server";
 
 type ResponseResult = OpenAI.Responses.Response;
 
-export const FAKE_GENERALIZATION: Generalization = {
+// What the model returns for questions 1 and 2 (no combined entry).
+export const FAKE_GENERALIZATION: Omit<Generalization, "entry"> = {
   generalized: "대형 금융사 결제 승인 API의 응답 지연 원인을 찾아 캐시를 적용함",
   changes: ["client_name"],
   tags: ["Redis", "캐시", "성능 개선"],
 };
+
+export const FAKE_ENTRY =
+  "대형 금융사 결제 승인 API의 응답 지연 원인을 찾아 캐시를 적용함\n· 내 역할·이유: 조회 병목을 확인해 캐시 도입을 직접 제안함\n· 결과: 응답 지연이 크게 줄어듦";
 
 // Cites L1 (exists) and L99 (made up) so tests can check that unknown refs are dropped.
 export const FAKE_STAR = {
@@ -53,7 +57,12 @@ export function createFakeDrawerLlm(): DrawerLlmClient {
       // Each request names its output format; answer with the matching fixture.
       create: async (body) => {
         const format = body.text?.format?.type === "json_schema" ? body.text.format.name : null;
-        const fixture = format === "star_summary" ? FAKE_STAR : FAKE_GENERALIZATION;
+        const fixture =
+          format === "star_summary"
+            ? FAKE_STAR
+            : format === "generalized_entry"
+              ? { ...FAKE_GENERALIZATION, entry: FAKE_ENTRY }
+              : FAKE_GENERALIZATION;
         return fakeResponse(JSON.stringify(fixture));
       },
     },

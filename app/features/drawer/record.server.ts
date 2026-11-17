@@ -78,7 +78,8 @@ export function composeLog(parts: Pick<RecordSession, "task" | "role" | "result"
   return text.length > MAX_LOG_LENGTH ? `${text.slice(0, MAX_LOG_LENGTH - 1)}…` : text;
 }
 
-async function advance(deps: RecordDeps, session: RecordSession, patch: SessionPatch) {
+/** `entry` is question 3's AI-combined log; without it the answers are joined as they are. */
+async function advance(deps: RecordDeps, session: RecordSession, patch: SessionPatch, entry: string | null = null) {
   const updated = { ...session, ...patch };
   if (session.step < 3) {
     const next = (session.step + 1) as SessionStep;
@@ -87,13 +88,13 @@ async function advance(deps: RecordDeps, session: RecordSession, patch: SessionP
     return;
   }
   await deps.repo.updateSession(session.userId, session.id, patch);
-  await finish(deps, updated);
+  await finish(deps, updated, entry);
 }
 
-async function finish({ repo, telegram }: RecordDeps, session: RecordSession) {
+async function finish({ repo, telegram }: RecordDeps, session: RecordSession, entry: string | null) {
   const pending = await repo.createPending(session.userId, {
     projectId: session.projectId,
-    generalized: composeLog(session),
+    generalized: entry ?? composeLog(session),
     changes: session.changes,
     tags: session.tags,
     chatId: session.chatId,
@@ -127,7 +128,11 @@ export async function answerQuestion(deps: AnswerDeps, session: RecordSession, t
   let result;
   try {
     const existing = await repo.listTags(session.userId);
-    result = await generalize(deps.llm, text, [...session.tags, ...existing]);
+    // Each question has its own editor role; earlier answers go along only as generalized summaries.
+    result = await generalize(deps.llm, text, [...session.tags, ...existing], {
+      step: session.step,
+      previous: { task: session.task, role: session.role },
+    });
   } catch (error) {
     if (!(error instanceof GeneralizeError)) throw error;
     console.error("generalize failed", error.reason);
@@ -140,7 +145,7 @@ export async function answerQuestion(deps: AnswerDeps, session: RecordSession, t
     [FIELD[session.step]]: result.generalized,
     changes: [...new Set([...session.changes, ...result.changes])],
     tags: normalizeTags([...session.tags, ...result.tags]),
-  });
+  }, result.entry);
 }
 
 /** Skips an optional question (2 and 3). Returns false if there is nothing to skip. */

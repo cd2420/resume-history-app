@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { LLM_MODEL } from "~/lib/llm.server";
 import { MAX_LOG_LENGTH } from "./limits";
-import { GENERALIZE_PROMPT } from "./prompts";
+import { ANSWER_COMMON_PROMPT, ANSWER_ROLE_PROMPTS } from "./prompts";
 import { normalizeTags } from "./tags";
 
 export { MAX_LOG_LENGTH };
@@ -28,10 +28,23 @@ export const generalizationSchema = z.object({
   tags: z.array(z.string()),
 });
 
+// Question 3 also writes the day's combined log, so it needs no extra call to join the answers.
+const entrySchema = generalizationSchema.extend({ entry: z.string() });
+
 export interface Generalization {
   generalized: string;
   changes: ChangeCategory[];
   tags: string[];
+  /** Question 3 only: the day's log combining all answers. null when absent or unusable. */
+  entry: string | null;
+}
+
+export type AnswerStep = 1 | 2 | 3;
+
+export interface AnswerContext {
+  step?: AnswerStep;
+  /** Earlier answers of this session, already generalized. Raw text never goes here. */
+  previous?: { task?: string | null; role?: string | null };
 }
 
 // Enough for the model to reuse the user's spelling without bloating every request.
@@ -69,6 +82,13 @@ function outputText(response: ResponseResult): string {
   return text;
 }
 
+/** Shared rules, then this question's editor role, then the earlier (already generalized) answers. */
+function answerInstructions(step: AnswerStep, previous: AnswerContext["previous"] = {}): string {
+  const earlier = [previous.task && `① 오늘 한 일: ${previous.task}`, previous.role && `② 내 역할·이유: ${previous.role}`].filter(Boolean);
+  const context = step > 1 ? `\n\n앞 질문 정리:\n${earlier.length ? earlier.join("\n") : "(없음)"}` : "";
+  return `${ANSWER_COMMON_PROMPT}\n\n${ANSWER_ROLE_PROMPTS[step]}${context}`;
+}
+
 function withExistingTags(prompt: string, existingTags: readonly string[]): string {
   const known = existingTags.slice(0, EXISTING_TAG_LIMIT);
   return known.length ? `${prompt}\n\n사용자가 이미 쓰는 태그: ${known.join(", ")}` : prompt;
@@ -99,7 +119,8 @@ export async function requestJson(llm: DrawerLlmClient, body: CreateParams): Pro
 }
 
 /**
- * Rewrites one daily answer with company secrets generalized and picks search tags.
+ * Rewrites one answer with company secrets generalized and picks search tags, as the editor
+ * role of its question. Earlier answers are passed only as their generalized summaries.
  * store: false keeps the raw text out of OpenAI's stored application state; the caller
  * must also never persist or log `text`. Only existing (already generalized) tag names
  * are sent along.
@@ -108,6 +129,7 @@ export async function generalize(
   llm: DrawerLlmClient,
   text: string,
   existingTags: readonly string[] = [],
+  { step = 1, previous }: AnswerContext = {},
 ): Promise<Generalization> {
   const input = text.trim();
   if (!input) throw new GeneralizeError("empty");
@@ -118,18 +140,23 @@ export async function generalize(
     store: false,
     reasoning: { effort: "low" },
     max_output_tokens: GENERALIZE_MAX_TOKENS,
-    instructions: withExistingTags(GENERALIZE_PROMPT, existingTags),
+    instructions: withExistingTags(answerInstructions(step, previous), existingTags),
     input: [{ role: "user", content: input }],
-    text: { format: zodTextFormat(generalizationSchema, "generalized_log") },
+    text: {
+      format: step === 3 ? zodTextFormat(entrySchema, "generalized_entry") : zodTextFormat(generalizationSchema, "generalized_log"),
+    },
   });
-  const parsed = generalizationSchema.safeParse(json);
+  const parsed = (step === 3 ? entrySchema : generalizationSchema).safeParse(json);
   if (!parsed.success) throw new GeneralizeError("invalid", { cause: parsed.error });
 
   const generalized = parsed.data.generalized.trim();
   if (!generalized || generalized.length > MAX_LOG_LENGTH) throw new GeneralizeError("invalid");
+  // A bad combined entry only loses the polish: the caller falls back to joining the answers.
+  const entry = (parsed.data as Partial<z.infer<typeof entrySchema>>).entry?.trim() ?? "";
   return {
     generalized,
     changes: [...new Set(parsed.data.changes)],
     tags: normalizeTags(parsed.data.tags, existingTags),
+    entry: entry && entry.length <= MAX_LOG_LENGTH ? entry : null,
   };
 }
